@@ -5,8 +5,8 @@ class Config:
     DATA_DIR = "./data"
     
     # Federated Learning basics
-    NUM_CLIENTS = 5
-    CLIENTS_PER_ROUND = 5
+    NUM_CLIENTS = 30
+    CLIENTS_PER_ROUND = 30
     NUM_ROUNDS = 5
     LOCAL_EPOCHS = 3
     BATCH_SIZE = 32
@@ -18,7 +18,9 @@ class Config:
     
     # Attack settings
     ATTACK_ENABLED = True
-    MALICIOUS_CLIENTS = [0, 1]  # First 2 out of 5 clients are malicious
+    MALICIOUS_PERCENTAGE = 0.2  # 20% of clients are malicious at each round
+    RANDOM_MALICIOUS = True  # Randomly select malicious clients each round
+    MALICIOUS_CLIENTS = []  # Will be populated dynamically each round
     
     # Defense settings (disabled for week 2)
     DEFENSE_ENABLED = False

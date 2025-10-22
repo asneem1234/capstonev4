@@ -1,10 +1,26 @@
 # Main training loop - Non-IID with Label Flipping Attack
 import torch
+import numpy as np
 from config import Config
 from model import get_model
 from data_loader import get_client_loaders
 from client import Client
 from server import Server
+
+def select_random_malicious_clients(num_clients, malicious_percentage):
+    """
+    Randomly select a percentage of clients to be malicious.
+    
+    Args:
+        num_clients: Total number of clients
+        malicious_percentage: Percentage of clients to be malicious (e.g., 0.2 for 20%)
+    
+    Returns:
+        List of malicious client IDs
+    """
+    num_malicious = int(num_clients * malicious_percentage)
+    malicious_clients = np.random.choice(num_clients, num_malicious, replace=False).tolist()
+    return sorted(malicious_clients)
 
 def main():
     print("=" * 70)
@@ -15,7 +31,11 @@ def main():
     print(f"Local epochs: {Config.LOCAL_EPOCHS}")
     print(f"Data Distribution: NON-IID (Dirichlet α={Config.DIRICHLET_ALPHA})")
     print(f"Attack enabled: {Config.ATTACK_ENABLED}")
-    print(f"Malicious clients: {Config.MALICIOUS_CLIENTS}")
+    if Config.RANDOM_MALICIOUS:
+        print(f"Malicious clients: RANDOM {Config.MALICIOUS_PERCENTAGE*100:.0f}% per round "
+              f"(~{int(Config.NUM_CLIENTS * Config.MALICIOUS_PERCENTAGE)} clients)")
+    else:
+        print(f"Malicious clients: {Config.MALICIOUS_CLIENTS}")
     print(f"Defense enabled: {Config.DEFENSE_ENABLED}")
     print("=" * 70)
     
@@ -48,13 +68,25 @@ def main():
         print(f"ROUND {round_num + 1}/{Config.NUM_ROUNDS}")
         print(f"{'='*70}")
         
+        # Randomly select malicious clients for this round
+        if Config.RANDOM_MALICIOUS:
+            malicious_clients_this_round = select_random_malicious_clients(
+                Config.NUM_CLIENTS, 
+                Config.MALICIOUS_PERCENTAGE
+            )
+            print(f"\n[MALICIOUS SELECTION]")
+            print(f"  Randomly selected {len(malicious_clients_this_round)} malicious clients: {malicious_clients_this_round}")
+        else:
+            malicious_clients_this_round = Config.MALICIOUS_CLIENTS
+        
         # Clients train
         client_updates = []
         print("\n[CLIENT TRAINING]")
         for i, client in enumerate(clients):
-            update, train_acc, train_loss, update_norm = client.train(global_model)
+            is_malicious = i in malicious_clients_this_round
+            update, train_acc, train_loss, update_norm = client.train(global_model, is_malicious)
             client_updates.append(update)
-            malicious_tag = " [MALICIOUS]" if client.is_malicious else ""
+            malicious_tag = " [MALICIOUS]" if is_malicious else ""
             print(f"  Client {i}{malicious_tag}: Train Acc={train_acc:.2f}%, "
                   f"Loss={train_loss:.4f}, Update Norm={update_norm:.4f}")
         

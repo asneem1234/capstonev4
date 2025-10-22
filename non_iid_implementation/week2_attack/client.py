@@ -10,16 +10,22 @@ class Client:
     def __init__(self, client_id, data_loader):
         self.client_id = client_id
         self.data_loader = data_loader
-        self.is_malicious = client_id in Config.MALICIOUS_CLIENTS
+        # Attack will be initialized per round if needed
+        self.attack = None
+    
+    def train(self, global_model, is_malicious_this_round=False):
+        """
+        Train on local data, return update and metrics
         
-        # Initialize attack if malicious
-        if self.is_malicious and Config.ATTACK_ENABLED:
+        Args:
+            global_model: The current global model
+            is_malicious_this_round: Whether this client is malicious for this round
+        """
+        # Initialize attack for this round if malicious
+        if is_malicious_this_round and Config.ATTACK_ENABLED:
             self.attack = LabelFlippingAttack(num_classes=10)
         else:
             self.attack = None
-    
-    def train(self, global_model):
-        """Train on local data, return update and metrics"""
         # Copy global model
         model = copy.deepcopy(global_model)
         model.train()

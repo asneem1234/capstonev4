@@ -1,10 +1,26 @@
 # Main training loop - CLIENT-SIDE FINGERPRINTS with PQ crypto
 import torch
+import numpy as np
 from config import Config
 from model import get_model
 from data_loader import get_client_loaders
 from client import Client
 from server import Server
+
+def select_random_malicious_clients(num_clients, malicious_percentage):
+    """
+    Randomly select a percentage of clients to be malicious.
+    
+    Args:
+        num_clients: Total number of clients
+        malicious_percentage: Percentage of clients to be malicious (e.g., 0.2 for 20%)
+    
+    Returns:
+        List of malicious client IDs
+    """
+    num_malicious = int(num_clients * malicious_percentage)
+    malicious_clients = np.random.choice(num_clients, num_malicious, replace=False).tolist()
+    return sorted(malicious_clients)
 
 def main():
     print("=" * 70)
@@ -15,7 +31,11 @@ def main():
     print(f"Local epochs: {Config.LOCAL_EPOCHS}")
     print(f"Data Distribution: NON-IID (Dirichlet α={Config.DIRICHLET_ALPHA})")
     print(f"Attack enabled: {Config.ATTACK_ENABLED}")
-    print(f"Malicious clients: {Config.MALICIOUS_CLIENTS}")
+    if Config.RANDOM_MALICIOUS:
+        print(f"Malicious clients: RANDOM {Config.MALICIOUS_PERCENTAGE*100:.0f}% per round "
+              f"(~{int(Config.NUM_CLIENTS * Config.MALICIOUS_PERCENTAGE)} clients)")
+    else:
+        print(f"Malicious clients: {Config.MALICIOUS_CLIENTS}")
     print(f"PQ Crypto: {'ENABLED' if Config.USE_PQ_CRYPTO else 'DISABLED'} " + 
           f"({'Real' if Config.USE_REAL_CRYPTO else 'Simulated'} mode)")
     print(f"Fingerprint Defense: {'ENABLED (CLIENT-SIDE)' if Config.USE_FINGERPRINTS else 'DISABLED'}")
@@ -49,21 +69,34 @@ def main():
         print(f"ROUND {round_num + 1}/{Config.NUM_ROUNDS}")
         print(f"{'='*70}")
         
+        # Randomly select malicious clients for this round
+        if Config.RANDOM_MALICIOUS:
+            malicious_clients_this_round = select_random_malicious_clients(
+                Config.NUM_CLIENTS, 
+                Config.MALICIOUS_PERCENTAGE
+            )
+            print(f"\n[MALICIOUS SELECTION]")
+            print(f"  Randomly selected {len(malicious_clients_this_round)} malicious clients: {malicious_clients_this_round}")
+        else:
+            malicious_clients_this_round = Config.MALICIOUS_CLIENTS
+        
         # Clients train and compute fingerprints
         client_messages = []
         client_public_keys = []
         print("\n[CLIENT TRAINING & FINGERPRINT COMPUTATION]")
         for i, client in enumerate(clients):
+            is_malicious = i in malicious_clients_this_round
             message, train_acc, train_loss, update_norm = client.train(
                 global_model, 
                 server.kem_public_key if Config.USE_PQ_CRYPTO else None,
-                round_num
+                round_num,
+                is_malicious
             )
             client_messages.append(message)
             if Config.USE_PQ_CRYPTO:
                 client_public_keys.append(client.sig_public_key)
             
-            malicious_tag = " [MALICIOUS]" if client.is_malicious else ""
+            malicious_tag = " [MALICIOUS]" if is_malicious else ""
             crypto_tag = " (encrypted)" if Config.USE_PQ_CRYPTO else ""
             fp_tag = " [fingerprint computed]" if Config.USE_FINGERPRINTS else ""
             print(f"  Client {i}{malicious_tag}: Train Acc={train_acc:.2f}%, "

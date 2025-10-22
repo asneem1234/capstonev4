@@ -5,8 +5,8 @@ class Config:
     DATA_DIR = "./data"
     
     # Federated Learning basics
-    NUM_CLIENTS = 5
-    CLIENTS_PER_ROUND = 5
+    NUM_CLIENTS = 30
+    CLIENTS_PER_ROUND = 30
     NUM_ROUNDS = 5
     LOCAL_EPOCHS = 3
     BATCH_SIZE = 32
