@@ -6,7 +6,11 @@
 
 ## 📋 Project Overview
 
-This project implements a **production-ready federated learning system** with state-of-the-art defenses against both **network attacks** (via Post-Quantum Cryptography) and **Byzantine attacks** (via gradient fingerprinting and validation). The system is designed for academic research and can handle both **IID** and **Non-IID** data distributions.
+This project implements a **production-ready federated learning system** with state-of-the-art defenses against both **network attacks** (via Post-Quantum Cryptography) and **Byzantine attacks** (via gradient fingerprinting and validation). The system is designed for academic research and can handle:
+
+- **Multiple datasets**: MNIST (digits), Fetal Ultrasound (medical imaging)
+- **Multiple distributions**: IID and Non-IID data
+- **Real-world scenarios**: Medical image classification with privacy preservation
 
 ### 🎯 Key Features
 
@@ -16,10 +20,16 @@ This project implements a **production-ready federated learning system** with st
   - **Layer 3**: Validation-Based Update Filtering
   
 - ✅ **Complete Experimental Framework**
-  - IID data distribution (equal class distribution)
-  - Non-IID data distribution (Dirichlet α=0.5 for heterogeneity)
+  - **MNIST Dataset**: IID and Non-IID data distributions
+  - **Fetal Ultrasound Dataset**: Medical image classification (6 anatomical planes)
   - Label flipping attack simulation
   - Comprehensive results documentation
+
+- ✅ **Multiple Implementation Scenarios**
+  - IID data distribution (equal class distribution)
+  - Non-IID data distribution (Dirichlet α=0.5 for heterogeneity)
+  - Medical imaging with real-world privacy constraints
+  - Google Colab support for GPU acceleration
 
 - ✅ **Academic Quality**
   - Clean, modular codebase
@@ -47,9 +57,23 @@ new_approach/
 │   └── RESULTS.md                     # Complete experimental results
 │
 ├── 📂 non_iid_implementation/         # Non-IID Data Experiments
-│   ├── week6/                         # Week 6 with Dirichlet distribution
+│   ├── week1_baseline/                # Baseline with Dirichlet distribution
+│   ├── week2_attack/                  # Attack with Non-IID data
+│   ├── week6_full_defense/            # Full defense with Non-IID data
 │   ├── README.md                      # Non-IID implementation guide
-│   └── RESULTS.md                     # Non-IID experimental results (to be added)
+│   └── RESULTS.md                     # Non-IID experimental results
+│
+├── 📂 fetal_plane_implementation/     # 🆕 Fetal Ultrasound Dataset Implementation
+│   ├── FETAL/                         # Fetal Planes DB dataset
+│   │   ├── Images/                    # Ultrasound images (1200+ files)
+│   │   └── FETAL_PLANES_DB_data.csv   # Metadata and labels
+│   ├── week1_baseline/                # Baseline with medical images
+│   ├── week2_attack/                  # Attack on medical FL system
+│   ├── week6_full_defense/            # Full defense with medical data
+│   ├── colab_*.ipynb                  # Google Colab notebooks
+│   ├── QUICK_START.md                 # Quick start guide
+│   ├── QUICK_START_COLAB.md          # Colab setup instructions
+│   └── README.md                      # Fetal plane implementation guide
 │
 ├── 📂 quantum_inspo/                  # Quantum-inspired research (future work)
 │
@@ -100,8 +124,27 @@ python main.py
 ### Run Non-IID Experiments
 
 ```bash
-cd non_iid_implementation/week6
+cd non_iid_implementation/week6_full_defense
 python main.py
+```
+
+### Run Fetal Plane Experiments (Medical Imaging)
+
+```bash
+# Baseline with medical images
+cd fetal_plane_implementation/week1_baseline
+python main.py
+
+# Attack on medical FL system
+cd ../week2_attack
+python main.py
+
+# Full defense with medical data
+cd ../week6_full_defense
+python main.py
+
+# Or use Google Colab notebooks (GPU-accelerated)
+# Upload colab_week1_baseline.ipynb to Google Colab
 ```
 
 ---
@@ -202,21 +245,35 @@ python main.py
 ## 🔬 Experimental Setup
 
 ### Dataset
-- **Name**: MNIST (handwritten digits)
-- **Training**: 60,000 samples
-- **Test**: 10,000 samples
-- **Validation**: 1,000 samples (held out)
-- **IID Distribution**: Equal split across 5 clients
-- **Non-IID Distribution**: Dirichlet(α=0.5) for heterogeneity
+- **MNIST (Handwritten Digits)**:
+  - Training: 60,000 samples
+  - Test: 10,000 samples
+  - Validation: 1,000 samples (held out)
+  - IID Distribution: Equal split across 5 clients
+  - Non-IID Distribution: Dirichlet(α=0.5) for heterogeneity
+
+- **Fetal Ultrasound Planes (Medical Imaging)** 🆕:
+  - Total: 12,400+ ultrasound images
+  - Classes: 6 anatomical planes (Fetal brain, Fetal thorax, Fetal abdomen, Fetal femur, Maternal cervix, Other)
+  - Image Size: 224×224 RGB
+  - Distribution: Naturally non-IID (patient-based partitioning)
+  - Privacy-Critical: Real medical data requiring secure federated learning
 
 ### Model
-- **Architecture**: SimpleCNN
+- **MNIST Architecture**: SimpleCNN
   - Conv1: 32 filters (5×5)
   - Conv2: 64 filters (5×5)
   - FC1: 1600 → 128
   - FC2: 128 → 10
-- **Parameters**: ~225,000
-- **Optimizer**: SGD (learning rate 0.01)
+  - Parameters: ~225,000
+  - Optimizer: SGD (learning rate 0.01)
+
+- **Fetal Ultrasound Architecture** 🆕: ResNet18 (pretrained)
+  - Base: ResNet18 with ImageNet pretrained weights
+  - Modified FC: 512 → 6 classes (anatomical planes)
+  - Parameters: ~11 million
+  - Optimizer: Adam (learning rate 0.001)
+  - Data Augmentation: Random horizontal flip, rotation (±10°)
 
 ### Federated Learning
 - **Clients**: 5
@@ -520,10 +577,14 @@ If you use this code in your research, please cite:
 - [x] PQ crypto integration (simulated)
 - [x] Client-side fingerprints with metadata
 - [x] Comprehensive documentation (README + RESULTS)
-- [x] Non-IID implementation (Week 6 ready)
+- [x] Non-IID implementation (3 weeks: baseline, attack, full defense)
+- [x] Fetal Ultrasound implementation 🆕
+- [x] Medical imaging federated learning
+- [x] Google Colab support for GPU acceleration
 
 ### In Progress 🔄
-- [ ] Non-IID experimental results
+- [ ] Non-IID experimental results documentation
+- [ ] Fetal plane experimental results
 - [ ] Threshold optimization studies
 - [ ] Real PQ crypto overhead measurement
 
@@ -531,7 +592,8 @@ If you use this code in your research, please cite:
 - [ ] Quantum-inspired defenses (quantum_inspo/)
 - [ ] Additional attack types
 - [ ] Scalability experiments (10+ clients)
-- [ ] Real-world dataset testing
+- [ ] Additional medical imaging datasets (chest X-ray, CT scans)
+- [ ] Cross-dataset transfer learning experiments
 
 ---
 
@@ -549,12 +611,16 @@ This project provides a **complete, production-ready federated learning system**
 - ✅ **97-98% accuracy maintained** (vs 98.57% baseline)
 - ✅ **Robust against 40% malicious clients**
 - ✅ **Modular, extensible design**
+- ✅ **Multiple dataset support** (MNIST + Medical Imaging)
+- ✅ **Real-world medical imaging scenario** (Fetal Ultrasound)
 - ✅ **Ready for academic publication**
 
-**Best implementation**: `iid_implementation/week6_fingerprints_client/`
+**Best implementations**: 
+- MNIST: `iid_implementation/week6_fingerprints_client/`
+- Medical: `fetal_plane_implementation/week6_full_defense/`
 
-**Next steps**: Run Non-IID experiments and compare heterogeneous data performance.
+**Next steps**: Complete experimental results for Non-IID and Fetal Plane implementations.
 
 ---
 
-*Last updated: October 7, 2025*
+*Last updated: October 22, 2025*
