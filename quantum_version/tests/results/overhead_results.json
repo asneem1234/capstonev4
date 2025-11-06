@@ -1,0 +1,9 @@
+{
+  "baseline_ms": 459.3322277069092,
+  "quantum_ms": 12.408483028411865,
+  "dct_ms": 0.3539705276489258,
+  "entropy_ms": 0.36904335021972656,
+  "scoring_ms": 0.3440999984741211,
+  "total_defense_ms": 13.475596904754639,
+  "overhead_percent": 2.9337364312597614,
+  "validation": 
