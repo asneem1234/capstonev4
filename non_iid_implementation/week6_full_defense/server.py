@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from config import Config
 from defense_validation import ValidationDefense
 from defense_fingerprint_client import ClientSideFingerprintDefense
+from defense_adaptive import AdaptiveDefense
 from pq_crypto import PQCrypto, hash_update
 
 class Server:
@@ -27,6 +28,7 @@ class Server:
                 validation_loader, 
                 threshold=Config.VALIDATION_THRESHOLD
             )
+            self.adaptive_defense = None  # DISABLED - using simple norm filter
             if Config.USE_FINGERPRINTS:
                 self.fingerprint_defense = ClientSideFingerprintDefense(
                     fingerprint_dim=Config.FINGERPRINT_DIM
@@ -35,6 +37,7 @@ class Server:
                 self.fingerprint_defense = None
         else:
             self.validation_defense = None
+            self.adaptive_defense = None
             self.fingerprint_defense = None
     
     def aggregate(self, client_messages, client_public_keys):
@@ -91,11 +94,40 @@ class Server:
             print("  WARNING: No valid updates after crypto/integrity verification!")
             return 0.0, validation_results, fingerprint_results, crypto_results, integrity_results
         
-        # Step 2: Three-layer Byzantine defense
-        if self.validation_defense:
-            updates_to_validate = list(range(len(client_updates)))
+        # Step 2: ADAPTIVE Byzantine defense
+        if False and self.adaptive_defense:  # DISABLED - using simple norm filter instead
+            # Collect metadata
+            metadata = None
+            if len(client_messages) > 0 and 'train_loss' in client_messages[0]:
+                losses = [msg['train_loss'] for msg in client_messages]
+                accuracies = [msg['train_acc'] for msg in client_messages]
+                metadata = {'losses': losses, 'accuracies': accuracies}
             
-            # Layer 2a: Fingerprint clustering (fast pre-filter with metadata)
+            # Extract features from all updates
+            features = self.adaptive_defense.compute_update_features(
+                client_updates, 
+                self.model,
+                client_metadata=metadata
+            )
+            
+            # Adaptive anomaly detection (NO hard-coded thresholds!)
+            honest_indices, malicious_indices, separation_factor, diagnostics = \
+                self.adaptive_defense.detect_malicious_adaptive(
+                    features, 
+                    method='statistical'  # Options: 'statistical', 'clustering', 'dbscan', 'isolation_forest'
+                )
+            
+            # ADAPTIVE results replace all previous filtering
+            fingerprint_results = {
+                'main_cluster': honest_indices,
+                'outliers': malicious_indices,
+                'method': 'adaptive_' + diagnostics['method'],
+                'separation_factor': separation_factor,
+                'diagnostics': diagnostics
+            }
+            
+            # OLD FINGERPRINT CLUSTERING (kept for comparison, but not used)
+            old_fingerprint_results = None
             if self.fingerprint_defense and client_fingerprints[0] is not None:
                 # Collect metadata (loss/accuracy) from messages
                 metadata = None
@@ -115,48 +147,85 @@ class Server:
                     threshold=Config.COSINE_THRESHOLD,
                     metadata=metadata
                 )
-                fingerprint_results = {
+                old_fingerprint_results = {
                     'main_cluster': main_cluster,
                     'outliers': outliers,
-                    'method': 'client-side + metadata'
+                    'method': 'client-side + metadata (old)'
                 }
-                # Only validate outliers
-                updates_to_validate = outliers
             
-            # Layer 2b: Validation filtering (expensive, only on suspicious)
+            # ADAPTIVE FILTERING: Only aggregate honest updates
+            filtered_updates = []
+            for i in honest_indices:
+                filtered_updates.append(client_updates[i])
+                validation_results.append({
+                    'client_id': i,
+                    'valid': True,
+                    'method': 'adaptive_honest',
+                    'loss_before': None,
+                    'loss_after': None,
+                    'loss_increase': features[i, 1]  # Loss increase from feature extraction
+                })
+            
+            # Rejected updates (for logging)
+            for i in malicious_indices:
+                validation_results.append({
+                    'client_id': i,
+                    'valid': False,
+                    'method': 'adaptive_malicious',
+                    'loss_before': None,
+                    'loss_after': None,
+                    'loss_increase': features[i, 1]  # Loss increase from feature extraction
+                })
+            
+            updates_to_aggregate = filtered_updates
+        else:
+            # SIMPLE NORM FILTERING + VALIDATION (proven approach)
+            # Extract update norms
+            update_norms = [msg['update_norm'] for msg in client_messages]
+            
+            # Calculate median and threshold
+            median_norm = torch.tensor(update_norms).median().item()
+            norm_threshold = median_norm * 3.0
+            
+            print(f"\n  [NORM FILTERING]")
+            print(f"    Median norm: {median_norm:.4f}")
+            print(f"    Threshold (3×median): {norm_threshold:.4f}")
+            
+            # Flag suspicious clients
+            suspicious_clients = []
+            for i in range(len(client_updates)):
+                if update_norms[i] > norm_threshold:
+                    suspicious_clients.append(i)
+                    print(f"    Client {i}: norm={update_norms[i]:.2f} > {norm_threshold:.2f} → SUSPICIOUS")
+            
+            # PURE NORM FILTERING: Reject high-norm, accept low-norm (no validation)
             filtered_updates = []
             for i in range(len(client_updates)):
-                # Auto-accept main cluster (fingerprint-verified)
-                if fingerprint_results and i in fingerprint_results['main_cluster']:
+                if i in suspicious_clients:
+                    # REJECT high-norm clients (gradient ascent attack)
+                    validation_results.append({
+                        'client_id': i,
+                        'valid': False,
+                        'method': 'norm_filter_reject',
+                        'loss_before': None,
+                        'loss_after': None,
+                        'loss_increase': None,
+                        'suspicious': True
+                    })
+                else:
+                    # ACCEPT low-norm clients (honest)
                     filtered_updates.append(client_updates[i])
                     validation_results.append({
                         'client_id': i,
                         'valid': True,
-                        'method': 'fingerprint',
+                        'method': 'norm_filter_accept',
                         'loss_before': None,
                         'loss_after': None,
-                        'loss_increase': None
+                        'loss_increase': None,
+                        'suspicious': False
                     })
-                # Validate suspicious updates
-                elif i in updates_to_validate:
-                    is_valid, loss_before, loss_after, loss_increase = \
-                        self.validation_defense.validate_update(self.model, client_updates[i])
-                    
-                    validation_results.append({
-                        'client_id': i,
-                        'valid': is_valid,
-                        'method': 'validation',
-                        'loss_before': loss_before,
-                        'loss_after': loss_after,
-                        'loss_increase': loss_increase
-                    })
-                    
-                    if is_valid:
-                        filtered_updates.append(client_updates[i])
             
             updates_to_aggregate = filtered_updates
-        else:
-            updates_to_aggregate = client_updates
         
         # Check if we have any valid updates
         if len(updates_to_aggregate) == 0:

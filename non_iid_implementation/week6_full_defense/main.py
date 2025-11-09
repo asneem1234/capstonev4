@@ -83,7 +83,8 @@ def main():
         # Clients train and compute fingerprints
         client_messages = []
         client_public_keys = []
-        print("\n[CLIENT TRAINING & FINGERPRINT COMPUTATION]")
+        print(f"\n[CLIENT TRAINING & FINGERPRINT COMPUTATION]")
+        n_clients = len(clients)  # Store for later use in detection accuracy
         for i, client in enumerate(clients):
             is_malicious = i in malicious_clients_this_round
             message, train_acc, train_loss, update_norm = client.train(
@@ -92,6 +93,8 @@ def main():
                 round_num,
                 is_malicious
             )
+            # Add update_norm to message for defense filtering
+            message['update_norm'] = update_norm
             client_messages.append(message)
             if Config.USE_PQ_CRYPTO:
                 client_public_keys.append(client.sig_public_key)
@@ -134,35 +137,55 @@ def main():
             print(f"      - Malicious server modifying updates")
             print(f"      - Update corruption during transmission")
         
-        # Show fingerprint clustering results
-        if Config.USE_FINGERPRINTS and fingerprint_results:
-            print(f"\n  [LAYER 2b: FINGERPRINT CLUSTERING (Cosine Similarity)]")
-            main_cluster = fingerprint_results['main_cluster']
-            outliers = fingerprint_results['outliers']
-            print(f"    Method: {fingerprint_results['method'].upper()}")
-            print(f"    Main cluster (likely honest): {main_cluster} [{len(main_cluster)} clients]")
-            print(f"    Outliers (suspicious): {outliers} [{len(outliers)} clients]")
-            print(f"    → Main cluster auto-accepted (skipped validation)")
-            print(f"    → Outliers will be validated")
+        # Show ADAPTIVE defense results
+        if fingerprint_results and 'adaptive' in fingerprint_results.get('method', ''):
+            print(f"\n  [LAYER 2: ADAPTIVE PATTERN-LEARNING DEFENSE]")
+            honest = fingerprint_results['main_cluster']
+            malicious = fingerprint_results['outliers']
+            sep_factor = fingerprint_results.get('separation_factor', 0.0)
+            diagnostics = fingerprint_results.get('diagnostics', {})
+            
+            print(f"    Method: {diagnostics.get('method', 'unknown').upper()}")
+            print(f"    ✓ Detected honest clients: {honest} [{len(honest)} clients]")
+            print(f"    ✗ Detected malicious clients: {malicious} [{len(malicious)} clients]")
+            print(f"    📊 Separation Factor: {sep_factor:.2f}x")
+            print(f"       (malicious updates are {sep_factor:.2f}× larger than honest)")
+            
+            # Show key statistics
+            if 'honest_norm_mean' in diagnostics:
+                print(f"    📈 Honest norm (avg): {diagnostics['honest_norm_mean']:.4f}")
+            if 'malicious_norm_mean' in diagnostics:
+                print(f"    📈 Malicious norm (avg): {diagnostics['malicious_norm_mean']:.4f}")
+            if 'threshold' in diagnostics:
+                print(f"    🎯 Adaptive threshold: {diagnostics['threshold']:.4f} (learned from data)")
+            
+            # Compare with actual malicious clients (ground truth)
+            actual_malicious = malicious_clients_this_round
+            detected_malicious = set(malicious)
+            actual_malicious_set = set(actual_malicious)
+            
+            true_positives = len(detected_malicious & actual_malicious_set)
+            false_positives = len(detected_malicious - actual_malicious_set)
+            false_negatives = len(actual_malicious_set - detected_malicious)
+            true_negatives = n_clients - len(actual_malicious_set) - false_positives
+            
+            precision = true_positives / len(detected_malicious) if detected_malicious else 0.0
+            recall = true_positives / len(actual_malicious_set) if actual_malicious_set else 0.0
+            accuracy = (true_positives + true_negatives) / n_clients
+            
+            print(f"\n    🎯 DETECTION ACCURACY:")
+            print(f"       True Positives (caught malicious): {true_positives}/{len(actual_malicious_set)}")
+            print(f"       False Positives (honest flagged): {false_positives}")
+            print(f"       False Negatives (malicious missed): {false_negatives}")
+            print(f"       Precision: {precision:.1%} | Recall: {recall:.1%} | Accuracy: {accuracy:.1%}")
         
-        # Show validation results
+        # Show aggregation results
         if Config.DEFENSE_ENABLED and validation_results:
-            print(f"\n  [LAYER 3: VALIDATION FILTERING]")
+            print(f"\n  [LAYER 3: AGGREGATION]")
             accepted = sum(1 for r in validation_results if r['valid'])
             rejected = len(validation_results) - accepted
-            print(f"    Accepted: {accepted}/{len(validation_results)} updates")
-            print(f"    Rejected: {rejected}/{len(validation_results)} updates")
-            
-            for result in validation_results:
-                status = "✓ ACCEPT" if result['valid'] else "✗ REJECT"
-                method = f"[{result['method']}]"
-                
-                if result['method'] == 'validation':
-                    print(f"    Client {result['client_id']}: {status} {method} "
-                          f"(Δloss={result['loss_increase']:+.4f})")
-                else:
-                    print(f"    Client {result['client_id']}: {status} {method} "
-                          f"(in main cluster)")
+            print(f"    ✓ Aggregated: {accepted}/{len(validation_results)} updates")
+            print(f"    ✗ Rejected: {rejected}/{len(validation_results)} updates")
         
         print(f"\n  Aggregated Update Norm: {agg_norm:.4f}")
         print(f"  Applied FedAvg to global model")

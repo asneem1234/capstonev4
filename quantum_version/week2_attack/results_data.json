@@ -1,0 +1,177 @@
+{
+  "experiment": "Quantum Federated Learning - Week 2 Attack",
+  "date": "2025-11-06",
+  "configuration": {
+    "num_clients": 5,
+    "clients_per_round": 5,
+    "num_rounds": 10,
+    "rounds_completed": 5,
+    "batch_size": 64,
+    "local_epochs": 2,
+    "learning_rate": 0.001,
+    "gradient_clip": 1.0,
+    "n_qubits": 4,
+    "n_layers": 4,
+    "non_iid": true,
+    "dirichlet_alpha": 0.5
+  },
+  "attack_configuration": {
+    "attack_enabled": true,
+    "attack_type": "gradient_ascent",
+    "scale_factor": 50.0,
+    "malicious_percentage": 0.4,
+    "num_malicious": 2,
+    "malicious_clients": [0, 1],
+    "honest_clients": [2, 3, 4],
+    "defense_enabled": false
+  },
+  "model": {
+    "type": "HybridQuantumNet",
+    "total_parameters": 5118,
+    "quantum_parameters": 32,
+    "classical_parameters": 5086
+  },
+  "data_distribution": [
+    {
+      "client_id": 0,
+      "samples": 13910,
+      "dominant_class": 6,
+      "dominant_class_samples": 4786,
+      "status": "malicious"
+    },
+    {
+      "client_id": 1,
+      "samples": 6144,
+      "dominant_class": 7,
+      "dominant_class_samples": 2361,
+      "status": "malicious"
+    },
+    {
+      "client_id": 2,
+      "samples": 14834,
+      "dominant_class": 3,
+      "dominant_class_samples": 4530,
+      "status": "honest"
+    },
+    {
+      "client_id": 3,
+      "samples": 14432,
+      "dominant_class": 4,
+      "dominant_class_samples": 5046,
+      "status": "honest"
+    },
+    {
+      "client_id": 4,
+      "samples": 10680,
+      "dominant_class": 1,
+      "dominant_class_samples": 4270,
+      "status": "honest"
+    }
+  ],
+  "global_results": [
+    {
+      "round": 1,
+      "test_accuracy": 10.10,
+      "test_loss": 5.2228,
+      "accuracy_vs_baseline": -0.52
+    },
+    {
+      "round": 2,
+      "test_accuracy": 11.35,
+      "test_loss": 14.0248,
+      "accuracy_vs_baseline": -37.30
+    },
+    {
+      "round": 3,
+      "test_accuracy": 11.35,
+      "test_loss": 101.8411,
+      "accuracy_vs_baseline": -62.98
+    },
+    {
+      "round": 4,
+      "test_accuracy": 9.82,
+      "test_loss": 658.6760,
+      "accuracy_vs_baseline": -76.00
+    },
+    {
+      "round": 5,
+      "test_accuracy": 10.10,
+      "test_loss": 1109.9002,
+      "accuracy_vs_baseline": -80.68
+    }
+  ],
+  "client_results": {
+    "round_1": [
+      {"client_id": 0, "loss": 1.1477, "accuracy": 59.15, "samples": 13910, "update_norm": 248.4933, "status": "malicious"},
+      {"client_id": 1, "loss": 1.3270, "accuracy": 61.37, "samples": 6144, "update_norm": 156.1249, "status": "malicious"},
+      {"client_id": 2, "loss": 1.1305, "accuracy": 64.80, "samples": 14834, "update_norm": 5.8697, "status": "honest"},
+      {"client_id": 3, "loss": 1.1629, "accuracy": 56.54, "samples": 14432, "update_norm": 5.1558, "status": "honest"},
+      {"client_id": 4, "loss": 1.1892, "accuracy": 64.88, "samples": 10680, "update_norm": 4.7997, "status": "honest"}
+    ],
+    "round_2": [
+      {"client_id": 0, "loss": 3.3575, "accuracy": 7.43, "samples": 13910, "update_norm": 157.2087, "status": "malicious"},
+      {"client_id": 1, "loss": 3.6127, "accuracy": 10.85, "samples": 6144, "update_norm": 84.0022, "status": "malicious"},
+      {"client_id": 2, "loss": 2.1917, "accuracy": 30.41, "samples": 14834, "update_norm": 2.1731, "status": "honest"},
+      {"client_id": 3, "loss": 2.2755, "accuracy": 33.37, "samples": 14432, "update_norm": 3.0235, "status": "honest"},
+      {"client_id": 4, "loss": 2.1186, "accuracy": 36.93, "samples": 10680, "update_norm": 1.8535, "status": "honest"}
+    ],
+    "round_3": [
+      {"client_id": 0, "loss": 14.4015, "accuracy": 0.06, "samples": 13910, "update_norm": 100.3953, "status": "malicious"},
+      {"client_id": 1, "loss": 15.4086, "accuracy": 1.79, "samples": 6144, "update_norm": 57.7298, "status": "malicious"},
+      {"client_id": 2, "loss": 5.3567, "accuracy": 26.37, "samples": 14834, "update_norm": 1.6362, "status": "honest"},
+      {"client_id": 3, "loss": 5.5236, "accuracy": 29.55, "samples": 14432, "update_norm": 3.2269, "status": "honest"},
+      {"client_id": 4, "loss": 5.6703, "accuracy": 39.98, "samples": 10680, "update_norm": 1.3862, "status": "honest"}
+    ],
+    "round_4": [
+      {"client_id": 0, "loss": 96.0565, "accuracy": 0.06, "samples": 13910, "update_norm": 227.7604, "status": "malicious"},
+      {"client_id": 1, "loss": 116.3064, "accuracy": 1.67, "samples": 6144, "update_norm": 118.4899, "status": "malicious"},
+      {"client_id": 2, "loss": 39.0196, "accuracy": 22.96, "samples": 14834, "update_norm": 4.6159, "status": "honest"},
+      {"client_id": 3, "loss": 32.7625, "accuracy": 26.81, "samples": 14432, "update_norm": 4.3371, "status": "honest"},
+      {"client_id": 4, "loss": 45.3878, "accuracy": 37.24, "samples": 10680, "update_norm": 3.7247, "status": "honest"}
+    ],
+    "round_5": [
+      {"client_id": 0, "loss": 280.8978, "accuracy": 0.41, "samples": 13910, "update_norm": 205.4394, "status": "malicious"},
+      {"client_id": 1, "loss": 513.7954, "accuracy": 0.33, "samples": 6144, "update_norm": 103.2446, "status": "malicious"},
+      {"client_id": 2, "loss": 117.0473, "accuracy": 24.53, "samples": 14834, "update_norm": 3.9576, "status": "honest"},
+      {"client_id": 3, "loss": 119.5568, "accuracy": 32.20, "samples": 14432, "update_norm": 3.7442, "status": "honest"},
+      {"client_id": 4, "loss": 165.7700, "accuracy": 26.64, "samples": 10680, "update_norm": 3.5588, "status": "honest"}
+    ]
+  },
+  "attack_effectiveness": {
+    "norm_separation": {
+      "round_1": {"malicious_avg": 202.31, "honest_avg": 5.28, "ratio": 38.3},
+      "round_2": {"malicious_avg": 120.61, "honest_avg": 2.34, "ratio": 51.5},
+      "round_3": {"malicious_avg": 79.06, "honest_avg": 2.07, "ratio": 38.2},
+      "round_4": {"malicious_avg": 173.12, "honest_avg": 4.23, "ratio": 40.9},
+      "round_5": {"malicious_avg": 154.34, "honest_avg": 3.74, "ratio": 41.3}
+    },
+    "model_degradation": {
+      "final_accuracy_loss": 80.68,
+      "final_loss_multiplier": 3309,
+      "convergence_status": "failed"
+    }
+  },
+  "comparison_with_baseline": {
+    "week1_final_accuracy": 90.78,
+    "week2_final_accuracy": 10.10,
+    "accuracy_degradation": 80.68,
+    "week1_final_loss": 0.3353,
+    "week2_final_loss": 1109.9002,
+    "loss_multiplier": 3309
+  },
+  "key_findings": [
+    "Gradient ascent attack with scale=50.0 completely prevents learning",
+    "Model accuracy stuck at random guess level (10%)",
+    "Malicious clients have 38-51× larger update norms than honest clients",
+    "Attack signature is highly detectable via norm-based filtering",
+    "Even 60% honest clients cannot overcome 40% malicious without defense",
+    "Honest clients suffer collateral damage (65% → 25% accuracy)"
+  ],
+  "defense_requirements": [
+    "Detect anomalous update norms (>3× median)",
+    "Validate update direction against validation loss",
+    "Use robust aggregation (Median, Krum, Trimmed Mean)",
+    "Add cryptographic verification (post-quantum signatures)",
+    "Implement client fingerprinting to track malicious behavior"
+  ]
+}

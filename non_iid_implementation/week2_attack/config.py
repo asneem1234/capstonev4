@@ -18,7 +18,7 @@ class Config:
     
     # Attack settings
     ATTACK_ENABLED = True
-    MALICIOUS_PERCENTAGE = 0.2  # 20% of clients are malicious at each round
+    MALICIOUS_PERCENTAGE = 0.4  # 40% of clients are malicious at each round (INCREASED)
     RANDOM_MALICIOUS = True  # Randomly select malicious clients each round
     MALICIOUS_CLIENTS = []  # Will be populated dynamically each round
     

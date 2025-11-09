@@ -1,6 +1,7 @@
 """
-Flower Server for Quantum Federated Learning with QuantumDefend PLUS v2
-3-Layer Cascading Defense: Norm filtering + Adaptive detection + Fingerprint verification
+Flower Server for Quantum Federated Learning with Full Defense
+Coordinates training and aggregates updates using FedAvg
+Implements 3-layer cascading defense: Norm Filter + Adaptive + Fingerprints
 """
 
 import torch
@@ -10,61 +11,130 @@ from flwr.server.strategy import FedAvg
 from flwr.common import Parameters, FitRes, Scalar
 from typing import List, Tuple, Dict, Optional, Union
 from quantum_model import create_model
+from defense_norm_filter import NormFilter
 from defense_adaptive import AdaptiveDefense
-from defense_fingerprint_client import ClientSideFingerprintDefense
+from defense_fingerprint_server import ServerFingerprintDefense
 
 
-class QuantumFedAvgDefended(FedAvg):
+class QuantumFedAvg(FedAvg):
     """
-    Custom FedAvg strategy for quantum federated learning with QuantumDefend PLUS v2
-    
-    3-Layer Cascading Defense Architecture:
-    - Layer 0: Fast norm-based filtering (removes obvious 50x attacks)
-    - Layer 1: Adaptive 6-feature anomaly detection (removes sophisticated 2-10x attacks)
-    - Layer 2: Client fingerprint verification (removes stealthy mimicry attacks)
+    Custom FedAvg strategy for quantum federated learning
+    Includes evaluation on test set after each round
     """
     
-    def __init__(self, validation_loader, test_loader, config, **kwargs):
+    def __init__(self, test_loader, config, **kwargs):
         """
-        Initialize quantum FedAvg strategy with multi-layer defense
+        Initialize quantum FedAvg strategy
         
         Args:
-            validation_loader: Validation dataset for defense (loss increase computation)
             test_loader: Test dataset loader
             config: Configuration module
             **kwargs: Additional arguments for FedAvg
         """
         super().__init__(**kwargs)
-        self.validation_loader = validation_loader
         self.test_loader = test_loader
         self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # Create model for server-side evaluation
-        self.model = create_model()
+        self.model = create_model(n_qubits=config.N_QUBITS, n_layers=config.N_LAYERS)
         self.model.to(self.device)
-        
-        # Initialize multi-layer defense
-        if config.DEFENSE_ENABLED:
-            if config.USE_ADAPTIVE_DEFENSE:
-                self.adaptive_defense = AdaptiveDefense(validation_loader)
-            else:
-                self.adaptive_defense = None
-            
-            if config.USE_FINGERPRINTS:
-                self.fingerprint_defense = ClientSideFingerprintDefense(
-                    fingerprint_dim=config.FINGERPRINT_DIM
-                )
-            else:
-                self.fingerprint_defense = None
-        else:
-            self.adaptive_defense = None
-            self.fingerprint_defense = None
         
         # Track metrics
         self.round_accuracies = []
         self.round_losses = []
-        self.defense_stats = []
+        
+        # Initialize defense layers if enabled
+        self.defense_enabled = config.DEFENSE_ENABLED
+        if self.defense_enabled:
+            # Layer 0: Norm Filter
+            if config.USE_NORM_FILTERING:
+                self.norm_filter = NormFilter(
+                    threshold_multiplier=config.NORM_THRESHOLD_MULTIPLIER
+                )
+            else:
+                self.norm_filter = None
+            
+            # Layer 1: Adaptive Defense
+            if config.USE_ADAPTIVE_DEFENSE:
+                self.adaptive_defense = AdaptiveDefense(
+                    threshold_std=config.ADAPTIVE_THRESHOLD_STD
+                )
+            else:
+                self.adaptive_defense = None
+            
+            # Layer 2: Fingerprint Validation
+            if config.USE_FINGERPRINTS:
+                self.fingerprint_defense = ServerFingerprintDefense(
+                    similarity_threshold=config.FINGERPRINT_SIMILARITY_THRESHOLD
+                )
+            else:
+                self.fingerprint_defense = None
+        else:
+            self.norm_filter = None
+            self.adaptive_defense = None
+            self.fingerprint_defense = None
+    
+    def apply_cascading_defense(self, client_updates):
+        """
+        Apply 3-layer cascading defense to client updates
+        
+        Args:
+            client_updates: List of dicts with keys:
+                - 'client_id': int
+                - 'params': list of numpy arrays
+                - 'metrics': dict with training metrics
+                - 'fingerprint': numpy array (optional)
+        
+        Returns:
+            accepted_updates: List of updates that passed all defense layers
+            defense_stats: Dict with statistics from each layer
+        """
+        accepted = client_updates
+        defense_stats = {
+            'layer0': None,
+            'layer1': None,
+            'layer2': None,
+            'initial_count': len(client_updates),
+            'final_count': 0
+        }
+        
+        if not self.defense_enabled or len(client_updates) == 0:
+            defense_stats['final_count'] = len(accepted)
+            return accepted, defense_stats
+        
+        # Layer 0: Norm Filter (Fast pre-filter)
+        if self.norm_filter is not None:
+            accepted, rejected_ids, layer0_stats = self.norm_filter.filter_updates(accepted)
+            defense_stats['layer0'] = layer0_stats
+            
+            print(f"\nDEFENSE Layer 0 (Norm Filter): {layer0_stats['accepted']}/{len(client_updates)} accepted")
+            print(f"   Threshold: {layer0_stats['threshold']:.4f} (median={layer0_stats['median_norm']:.4f} x {self.config.NORM_THRESHOLD_MULTIPLIER})")
+            if layer0_stats['rejected'] > 0:
+                print(f"   Rejected: {rejected_ids}")
+        
+        # Layer 1: Adaptive Defense (Statistical outlier detection)
+        if self.adaptive_defense is not None and len(accepted) > 0:
+            accepted, rejected_ids, layer1_stats = self.adaptive_defense.filter_updates(accepted, self.model)
+            defense_stats['layer1'] = layer1_stats
+            
+            print(f"DEFENSE Layer 1 (Adaptive): {layer1_stats['accepted']} survived")
+            if layer1_stats['rejected'] > 0:
+                print(f"   Rejected: {rejected_ids}")
+        
+        # Layer 2: Fingerprint Validation (Identity verification)
+        if self.fingerprint_defense is not None and len(accepted) > 0:
+            accepted, rejected_ids, layer2_stats = self.fingerprint_defense.validate_batch(accepted)
+            defense_stats['layer2'] = layer2_stats
+            
+            print(f"DEFENSE Layer 2 (Fingerprints): {layer2_stats['accepted']} final")
+            if layer2_stats['rejected'] > 0:
+                print(f"   Rejected: {rejected_ids}")
+        
+        defense_stats['final_count'] = len(accepted)
+        print(f"\nFINAL: {len(accepted)}/{len(client_updates)} updates accepted for aggregation\n")
+        
+        return accepted, defense_stats
     
     def aggregate_fit(
         self,
@@ -73,11 +143,11 @@ class QuantumFedAvgDefended(FedAvg):
         failures: List[Union[Tuple[FitRes, int], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """
-        Aggregate training results using FedAvg with defense
+        Aggregate training results using FedAvg with 3-layer defense
         
         Args:
             server_round: Current round number
-            results: List of (FitRes, num_samples) tuples
+            results: List of (client_proxy, fit_res) tuples
             failures: List of failed clients
         
         Returns:
@@ -97,158 +167,45 @@ class QuantumFedAvgDefended(FedAvg):
                     loss = metrics.get("loss", 0)
                     acc = metrics.get("accuracy", 0)
                     norm = metrics.get("update_norm", 0)
-                    is_mal = metrics.get("is_malicious", False)
-                    mal_str = " ⚠️ MALICIOUS" if is_mal else " ✓ HONEST"
+                    num_samples = fit_res.num_examples
                     
                     print(f"  Client {client_id}: "
                           f"Loss={loss:.4f}, Acc={acc:.2f}%, "
-                          f"Norm={norm:.4f}{mal_str}")
+                          f"Samples={num_samples}, Norm={norm:.4f}")
         
-        # ===== QUANTUMDEFEND PLUS v2: 3-Layer Cascading Defense =====
-        defense_stats = {
-            "round": server_round,
-            "total_clients": len(results),
-            "layer0_rejected": [],
-            "layer1_rejected": [],
-            "layer2_rejected": [],
-            "final_accepted": [],
-            "final_rejected": []
-        }
-        
-        if self.config.USE_NORM_FILTERING or self.adaptive_defense is not None or self.fingerprint_defense is not None:
-            # Extract client updates and metadata
-            client_updates = []
-            client_metadata = {"losses": [], "accuracies": [], "norms": []}
-            client_fingerprints = []
-            
+        # Apply defense if enabled
+        if self.defense_enabled and len(results) > 0:
+            # Convert Flower results to defense format
             from flwr.common import parameters_to_ndarrays
+            client_updates = []
             for client_proxy, fit_res in results:
-                # Convert parameters to update dictionary
-                params_list = parameters_to_ndarrays(fit_res.parameters)
-                update_dict = {}
-                for idx, (name, _) in enumerate(self.model.named_parameters()):
-                    update_dict[name] = torch.from_numpy(params_list[idx])
+                params_ndarrays = parameters_to_ndarrays(fit_res.parameters)
+                metrics = fit_res.metrics if fit_res.metrics else {}
                 
+                update_dict = {
+                    'client_id': metrics.get('client_id', 0),
+                    'params': params_ndarrays,
+                    'metrics': metrics,
+                    'fingerprint': np.array(metrics.get('fingerprint', [])) if 'fingerprint' in metrics else None,
+                    'num_examples': fit_res.num_examples
+                }
                 client_updates.append(update_dict)
-                
-                # Extract metadata
-                metrics = fit_res.metrics
-                client_metadata["losses"].append(metrics.get("loss", 0.0))
-                client_metadata["accuracies"].append(metrics.get("accuracy", 0.0))
-                client_metadata["norms"].append(metrics.get("update_norm", 0.0))
-                
-                # Extract fingerprint (if available)
-                if "fingerprint" in metrics:
-                    client_fingerprints.append(np.array(metrics["fingerprint"]))
             
-            # ===== Layer 0: Fast Norm-Based Filtering =====
-            honest_indices = list(range(len(results)))
-            if self.config.USE_NORM_FILTERING:
-                norms = np.array(client_metadata["norms"])
-                median_norm = np.median(norms)
-                threshold = median_norm * self.config.NORM_THRESHOLD_MULTIPLIER
-                
-                # Filter by norm
-                layer0_accepted = []
-                for idx in honest_indices:
-                    if norms[idx] <= threshold:
-                        layer0_accepted.append(idx)
-                    else:
-                        defense_stats["layer0_rejected"].append(idx)
-                
-                honest_indices = layer0_accepted
-                
-                if self.config.VERBOSE:
-                    print(f"\n🛡️  Layer 0 (Norm Filter): {len(honest_indices)}/{len(results)} accepted")
-                    print(f"   Threshold: {threshold:.4f} (median={median_norm:.4f} × {self.config.NORM_THRESHOLD_MULTIPLIER})")
-                    print(f"   Rejected: {defense_stats['layer0_rejected']}")
+            # Apply cascading defense
+            accepted_updates, defense_stats = self.apply_cascading_defense(client_updates)
             
-            # ===== Layer 1: Adaptive Anomaly Detection =====
-            if self.adaptive_defense is not None and len(honest_indices) > 0:
-                # Extract 6 features (only for clients that passed Layer 0)
-                features = self.adaptive_defense.compute_update_features(
-                    [client_updates[i] for i in honest_indices], 
-                    self.model, 
-                    {
-                        "losses": [client_metadata["losses"][i] for i in honest_indices],
-                        "accuracies": [client_metadata["accuracies"][i] for i in honest_indices]
-                    }
-                )
-                
-                # Detect anomalies
-                honest_idx_local, malicious_idx_local, sep_factor, diagnostics = \
-                    self.adaptive_defense.detect_malicious_adaptive(
-                        features,
-                        method=self.config.ADAPTIVE_METHOD
-                    )
-                
-                # Convert local indices back to global indices
-                layer1_accepted = [honest_indices[i] for i in honest_idx_local]
-                layer1_rejected_global = [honest_indices[i] for i in malicious_idx_local]
-                defense_stats["layer1_rejected"] = layer1_rejected_global
-                defense_stats["layer1_diagnostics"] = diagnostics
-                defense_stats["separation_factor"] = sep_factor
-                
-                honest_indices = layer1_accepted
-                
-                if self.config.VERBOSE:
-                    print(f"\n🛡️  Layer 1 (Adaptive): {len(honest_indices)}/{len(results)} accepted")
-                    print(f"   Method: {self.config.ADAPTIVE_METHOD}")
-                    print(f"   Rejected: {layer1_rejected_global}")
-                    print(f"   Separation Factor: {sep_factor:.2f}x")
+            # Convert back to Flower format
+            from flwr.common import ndarrays_to_parameters
+            filtered_results = []
+            for update in accepted_updates:
+                # Find original result
+                for client_proxy, fit_res in results:
+                    if fit_res.metrics and fit_res.metrics.get('client_id') == update['client_id']:
+                        filtered_results.append((client_proxy, fit_res))
+                        break
             
-            # ===== Layer 2: Fingerprint Verification =====
-            if self.fingerprint_defense is not None and len(client_fingerprints) > 0:
-                # Verify fingerprints for honest clients from Layer 1
-                verified_indices = []
-                for idx in honest_indices:
-                    is_valid, actual_fp, similarity = self.fingerprint_defense.verify_fingerprint(
-                        client_updates[idx],
-                        client_fingerprints[idx],
-                        tolerance=self.config.FINGERPRINT_TOLERANCE
-                    )
-                    
-                    if is_valid:
-                        verified_indices.append(idx)
-                    else:
-                        defense_stats["layer2_rejected"].append(idx)
-                
-                # Cluster fingerprints among verified clients
-                if len(verified_indices) >= 2:
-                    verified_fingerprints = [client_fingerprints[i] for i in verified_indices]
-                    verified_metadata = {
-                        "losses": [client_metadata["losses"][i] for i in verified_indices],
-                        "accuracies": [client_metadata["accuracies"][i] for i in verified_indices]
-                    }
-                    
-                    main_cluster, outliers_local = self.fingerprint_defense.cluster_fingerprints(
-                        verified_fingerprints,
-                        threshold=self.config.FINGERPRINT_THRESHOLD,
-                        metadata=verified_metadata
-                    )
-                    
-                    # Convert local indices back to global indices
-                    final_accepted = [verified_indices[i] for i in main_cluster]
-                    layer2_outliers = [verified_indices[i] for i in outliers_local]
-                    defense_stats["layer2_rejected"].extend(layer2_outliers)
-                else:
-                    final_accepted = verified_indices
-                
-                honest_indices = final_accepted
-                
-                if self.config.VERBOSE:
-                    print(f"🛡️  Layer 2 (Fingerprints): {len(honest_indices)}/{len(results)} accepted")
-                    print(f"   Verification rejected: {len(defense_stats['layer2_rejected'])}")
-            
-            # Update results to only include accepted clients
-            defense_stats["final_accepted"] = honest_indices
-            defense_stats["final_rejected"] = [i for i in range(len(results)) if i not in honest_indices]
-            self.defense_stats.append(defense_stats)
-            
-            results = [results[i] for i in honest_indices]
-            
-            if self.config.VERBOSE:
-                print(f"\n✅ Final: {len(results)}/{defense_stats['total_clients']} updates accepted for aggregation")
+            # Use filtered results for aggregation
+            results = filtered_results
         
         # Aggregate using parent FedAvg
         aggregated_parameters, aggregated_metrics = super().aggregate_fit(
@@ -324,36 +281,12 @@ class QuantumFedAvgDefended(FedAvg):
         Returns:
             Dictionary with accuracy and loss history
         """
-        results = {
+        return {
             "accuracies": self.round_accuracies,
             "losses": self.round_losses,
             "final_accuracy": self.round_accuracies[-1] if self.round_accuracies else 0.0,
             "final_loss": self.round_losses[-1] if self.round_losses else 0.0
         }
-        
-        # Add defense statistics if available
-        if self.adaptive_defense is not None or self.fingerprint_defense is not None:
-            results["defense_stats"] = self.defense_stats
-            
-            # Compute defense summary
-            total_rounds = len(self.defense_stats)
-            total_clients = sum(stat["total_clients"] for stat in self.defense_stats)
-            layer0_rejections = sum(len(stat["layer0_rejected"]) for stat in self.defense_stats)
-            layer1_rejections = sum(len(stat["layer1_rejected"]) for stat in self.defense_stats)
-            layer2_rejections = sum(len(stat["layer2_rejected"]) for stat in self.defense_stats)
-            total_accepted = sum(len(stat["final_accepted"]) for stat in self.defense_stats)
-            
-            results["defense_summary"] = {
-                "total_rounds": total_rounds,
-                "total_clients": total_clients,
-                "layer0_rejections": layer0_rejections,
-                "layer1_rejections": layer1_rejections,
-                "layer2_rejections": layer2_rejections,
-                "total_accepted": total_accepted,
-                "rejection_rate": 1.0 - (total_accepted / total_clients) if total_clients > 0 else 0.0
-            }
-        
-        return results
 
 
 def create_server_config(num_rounds: int, clients_per_round: int) -> ServerConfig:
@@ -370,28 +303,26 @@ def create_server_config(num_rounds: int, clients_per_round: int) -> ServerConfi
     return ServerConfig(num_rounds=num_rounds)
 
 
-def create_strategy(validation_loader, test_loader, config) -> QuantumFedAvgDefended:
+def create_strategy(test_loader, config) -> QuantumFedAvg:
     """
-    Create federated learning strategy with QuantumDefend PLUS
+    Create federated learning strategy
     
     Args:
-        validation_loader: Validation dataset for defense
         test_loader: Test dataset loader
         config: Configuration module
     
     Returns:
-        QuantumFedAvgDefended strategy
+        QuantumFedAvg strategy
     """
-    # Initialize global model
-    model = create_model()
+    # Initialize global model with config parameters
+    model = create_model(n_qubits=config.N_QUBITS, n_layers=config.N_LAYERS)
     initial_parameters = [param.cpu().detach().numpy() for param in model.parameters()]
     
     # Convert to Flower Parameters format
     from flwr.common import ndarrays_to_parameters
     initial_parameters_fl = ndarrays_to_parameters(initial_parameters)
     
-    strategy = QuantumFedAvgDefended(
-        validation_loader=validation_loader,
+    strategy = QuantumFedAvg(
         test_loader=test_loader,
         config=config,
         fraction_fit=1.0,  # Use all available clients

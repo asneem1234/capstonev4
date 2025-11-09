@@ -1,8 +1,8 @@
 """
-Flower Client for Quantum Federated Learning with QuantumDefend PLUS
+Flower Client for Quantum Federated Learning with Full Defense
 Each client trains a quantum neural network locally
 Malicious clients apply gradient ascent attack
-Honest clients compute integrity fingerprints for 2-layer defense
+Clients generate fingerprints for server-side validation (Layer 2 Defense)
 """
 
 import torch
@@ -12,7 +12,7 @@ from flwr.client import NumPyClient
 import numpy as np
 from quantum_model import HybridQuantumNet
 from attack import ModelPoisoningAttack
-from defense_fingerprint_client import ClientSideFingerprintDefense
+from defense_fingerprint_client import ClientFingerprintDefense
 
 
 class QuantumFlowerClient(NumPyClient):
@@ -21,9 +21,9 @@ class QuantumFlowerClient(NumPyClient):
     Can be honest or malicious based on client_id
     """
     
-    def __init__(self, client_id, train_loader, test_loader, config, is_malicious=False):
+    def __init__(self, client_id, train_loader, test_loader, config, is_malicious=False, scale_factor=None):
         """
-        Initialize quantum client with fingerprint defense
+        Initialize quantum client
         
         Args:
             client_id: Unique client identifier
@@ -31,6 +31,7 @@ class QuantumFlowerClient(NumPyClient):
             test_loader: DataLoader for test data (shared)
             config: Configuration module
             is_malicious: Whether this client is malicious
+            scale_factor: Attack intensity for this specific client (overrides config.SCALE_FACTOR)
         """
         self.client_id = client_id
         self.train_loader = train_loader
@@ -53,23 +54,26 @@ class QuantumFlowerClient(NumPyClient):
             lr=config.LEARNING_RATE
         )
         
-        # Initialize fingerprint defense (for all clients)
-        if config.USE_FINGERPRINTS:
-            self.fingerprint_defense = ClientSideFingerprintDefense(
-                fingerprint_dim=config.FINGERPRINT_DIM
-            )
-        else:
-            self.fingerprint_defense = None
-        
         # Initialize attack if client is malicious
         if self.is_malicious and config.ATTACK_ENABLED:
+            # Use client-specific scale factor if provided, otherwise use config default
+            attack_scale = scale_factor if scale_factor is not None else config.SCALE_FACTOR
             self.attack = ModelPoisoningAttack(
                 num_classes=config.NUM_CLASSES,
                 attack_type=config.ATTACK_TYPE,
-                scale_factor=config.SCALE_FACTOR
+                scale_factor=attack_scale
             )
         else:
             self.attack = None
+        
+        # Initialize fingerprint defense if enabled (Layer 2)
+        if config.USE_FINGERPRINTS:
+            self.fingerprint_defense = ClientFingerprintDefense(
+                projection_dim=config.FINGERPRINT_DIM
+            )
+            self.fingerprint_defense.initialize_projection(self.model)
+        else:
+            self.fingerprint_defense = None
     
     def get_parameters(self, config=None):
         """
@@ -120,6 +124,11 @@ class QuantumFlowerClient(NumPyClient):
                 output = self.model(data)
                 loss = self.criterion(output, target)
                 loss.backward()
+                
+                # Gradient clipping for stability
+                if hasattr(self.config, 'GRADIENT_CLIP'):
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.GRADIENT_CLIP)
+                
                 self.optimizer.step()
                 
                 total_loss += loss.item()
@@ -230,7 +239,7 @@ class QuantumFlowerClient(NumPyClient):
         return np.sqrt(update_norm)
 
 
-def create_client(client_id, train_loader, test_loader, config, is_malicious=False):
+def create_client(client_id, train_loader, test_loader, config, is_malicious=False, scale_factor=None):
     """
     Factory function to create Flower client
     
@@ -240,11 +249,12 @@ def create_client(client_id, train_loader, test_loader, config, is_malicious=Fal
         test_loader: Test data (shared)
         config: Configuration module
         is_malicious: Whether client should apply attacks
+        scale_factor: Attack intensity for this specific client (overrides config.SCALE_FACTOR)
     
     Returns:
         QuantumFlowerClient instance
     """
-    return QuantumFlowerClient(client_id, train_loader, test_loader, config, is_malicious)
+    return QuantumFlowerClient(client_id, train_loader, test_loader, config, is_malicious, scale_factor)
 
 
 if __name__ == "__main__":

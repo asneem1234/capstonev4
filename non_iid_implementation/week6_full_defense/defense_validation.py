@@ -1,14 +1,17 @@
-# Simple validation-based defense
+# Enhanced validation-based defense with norm filtering
 import torch
 import torch.nn.functional as F
 import copy
+import numpy as np
 
 class ValidationDefense:
-    """Validate client updates using held-out validation set"""
+    """Validate client updates using held-out validation set + norm filtering"""
     
-    def __init__(self, validation_loader, threshold=0.05):
+    def __init__(self, validation_loader, threshold=0.05, use_norm_filtering=True, norm_multiplier=3.0):
         self.validation_loader = validation_loader
         self.threshold = threshold  # Max acceptable loss increase
+        self.use_norm_filtering = use_norm_filtering
+        self.norm_multiplier = norm_multiplier  # Reject if norm > multiplier * median
     
     def validate_update(self, global_model, client_update):
         """Test if applying update improves or degrades model"""

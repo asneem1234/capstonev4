@@ -1,0 +1,146 @@
+{
+  "experiment": "Quantum Federated Learning - Week 1 Baseline",
+  "date": "2025-11-05",
+  "configuration": {
+    "num_clients": 5,
+    "clients_per_round": 5,
+    "num_rounds": 5,
+    "batch_size": 64,
+    "local_epochs": 2,
+    "learning_rate": 0.001,
+    "gradient_clip": 1.0,
+    "n_qubits": 4,
+    "n_layers": 4,
+    "non_iid": true,
+    "dirichlet_alpha": 0.5,
+    "attack_enabled": false,
+    "defense_enabled": false
+  },
+  "model": {
+    "type": "HybridQuantumNet",
+    "total_parameters": 5118,
+    "quantum_parameters": 32,
+    "classical_parameters": 5086,
+    "architecture": {
+      "feature_extractor": "CNN (Conv2d layers + MaxPool + AdaptiveAvgPool)",
+      "quantum_interface": "Linear(256 -> 4) + Tanh",
+      "quantum_circuit": "4 qubits, 4 layers, angle encoding, RY/RZ rotations, CNOT entanglement",
+      "classifier": "Linear(4 -> 32) -> ReLU -> Dropout(0.2) -> Linear(32 -> 10)"
+    }
+  },
+  "data_distribution": [
+    {
+      "client_id": 0,
+      "samples": 13910,
+      "dominant_class": 6,
+      "dominant_class_samples": 4786
+    },
+    {
+      "client_id": 1,
+      "samples": 6144,
+      "dominant_class": 7,
+      "dominant_class_samples": 2361
+    },
+    {
+      "client_id": 2,
+      "samples": 14834,
+      "dominant_class": 3,
+      "dominant_class_samples": 4530
+    },
+    {
+      "client_id": 3,
+      "samples": 14432,
+      "dominant_class": 4,
+      "dominant_class_samples": 5046
+    },
+    {
+      "client_id": 4,
+      "samples": 10680,
+      "dominant_class": 1,
+      "dominant_class_samples": 4270
+    }
+  ],
+  "global_results": [
+    {
+      "round": 1,
+      "test_accuracy": 10.62,
+      "test_loss": 2.1695
+    },
+    {
+      "round": 2,
+      "test_accuracy": 48.65,
+      "test_loss": 1.2563
+    },
+    {
+      "round": 3,
+      "test_accuracy": 74.33,
+      "test_loss": 0.7870
+    },
+    {
+      "round": 4,
+      "test_accuracy": 85.82,
+      "test_loss": 0.5078
+    },
+    {
+      "round": 5,
+      "test_accuracy": 90.78,
+      "test_loss": 0.3353
+    }
+  ],
+  "client_results": {
+    "round_1": [
+      {"client_id": 0, "loss": 1.1894, "accuracy": 56.71, "samples": 13910, "update_norm": 4.7785},
+      {"client_id": 1, "loss": 1.3530, "accuracy": 59.81, "samples": 6144, "update_norm": 3.1298},
+      {"client_id": 2, "loss": 1.1655, "accuracy": 63.12, "samples": 14834, "update_norm": 5.7241},
+      {"client_id": 3, "loss": 1.6388, "accuracy": 38.64, "samples": 14432, "update_norm": 3.9728},
+      {"client_id": 4, "loss": 1.2889, "accuracy": 60.16, "samples": 10680, "update_norm": 4.3832}
+    ],
+    "round_2": [
+      {"client_id": 0, "loss": 0.6554, "accuracy": 82.71, "samples": 13910, "update_norm": 4.3023},
+      {"client_id": 1, "loss": 0.9276, "accuracy": 75.56, "samples": 6144, "update_norm": 2.5894},
+      {"client_id": 2, "loss": 0.7239, "accuracy": 80.55, "samples": 14834, "update_norm": 4.4747},
+      {"client_id": 3, "loss": 0.7541, "accuracy": 78.43, "samples": 14432, "update_norm": 4.6701},
+      {"client_id": 4, "loss": 0.7259, "accuracy": 82.81, "samples": 10680, "update_norm": 3.4830}
+    ],
+    "round_3": [
+      {"client_id": 0, "loss": 0.3702, "accuracy": 89.89, "samples": 13910, "update_norm": 3.4035},
+      {"client_id": 1, "loss": 0.4636, "accuracy": 89.68, "samples": 6144, "update_norm": 2.1480},
+      {"client_id": 2, "loss": 0.4508, "accuracy": 87.56, "samples": 14834, "update_norm": 3.3713},
+      {"client_id": 3, "loss": 0.4311, "accuracy": 88.65, "samples": 14432, "update_norm": 3.5826},
+      {"client_id": 4, "loss": 0.3785, "accuracy": 90.12, "samples": 10680, "update_norm": 2.7243}
+    ],
+    "round_4": [
+      {"client_id": 0, "loss": 0.2664, "accuracy": 92.21, "samples": 13910, "update_norm": 2.8259},
+      {"client_id": 1, "loss": 0.2932, "accuracy": 93.06, "samples": 6144, "update_norm": 1.6554},
+      {"client_id": 2, "loss": 0.3272, "accuracy": 90.78, "samples": 14834, "update_norm": 2.6767},
+      {"client_id": 3, "loss": 0.2879, "accuracy": 92.29, "samples": 14432, "update_norm": 2.8047},
+      {"client_id": 4, "loss": 0.2766, "accuracy": 92.23, "samples": 10680, "update_norm": 2.1543}
+    ],
+    "round_5": [
+      {"client_id": 0, "loss": 0.1894, "accuracy": 95.18, "samples": 13910, "update_norm": 2.4342},
+      {"client_id": 1, "loss": 0.2128, "accuracy": 94.45, "samples": 6144, "update_norm": 1.4454},
+      {"client_id": 2, "loss": 0.2613, "accuracy": 92.67, "samples": 14834, "update_norm": 2.1935},
+      {"client_id": 3, "loss": 0.2209, "accuracy": 93.85, "samples": 14432, "update_norm": 2.2608},
+      {"client_id": 4, "loss": 0.2131, "accuracy": 94.07, "samples": 10680, "update_norm": 1.7541}
+    ]
+  },
+  "final_metrics": {
+    "final_test_accuracy": 90.78,
+    "final_test_loss": 0.3353,
+    "total_training_time_seconds": 26935.96,
+    "total_training_time_minutes": 448.93,
+    "total_training_time_hours": 7.48
+  },
+  "technical_fixes": {
+    "gradient_flow": "Removed .item() calls to preserve gradients",
+    "learning_rate": "Reduced from 0.01 to 0.001",
+    "gradient_clipping": "Added max_norm=1.0",
+    "dtype_consistency": "Ensured float32 throughout pipeline"
+  },
+  "issues_resolved": {
+    "problem": "No learning - accuracy stuck at 10%",
+    "root_cause": "Quantum circuit forward pass was detaching gradients",
+    "solution": "Preserved tensor gradients by using torch.stack() instead of .item()",
+    "result": "All layers now receive gradients and learn properly"
+  }
+}

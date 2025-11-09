@@ -1,11 +1,12 @@
 """
 Configuration for Quantum Federated Learning - Week 6 (Full Defense)
+EXPERIMENT: 5 clients with diverse attack intensities
 """
 
 # ===== Federated Learning Settings =====
 NUM_CLIENTS = 5
 CLIENTS_PER_ROUND = 5
-NUM_ROUNDS = 5
+NUM_ROUNDS = 5  # 5 rounds for testing
 
 # ===== Data Distribution =====
 NON_IID = True
@@ -14,39 +15,68 @@ DIRICHLET_ALPHA = 0.5
 # ===== Training Hyperparameters =====
 BATCH_SIZE = 64
 LOCAL_EPOCHS = 2
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.01  # Increased from 0.001 for faster convergence
+GRADIENT_CLIP = 1.0  # Gradient clipping for stability
 
 # ===== Quantum Circuit Settings =====
-N_QUBITS = 4  # Fixed: Must match quantum_model.py architecture (classifier expects 4-D input)
-N_LAYERS = 4  # Fixed: Match baseline architecture
+N_QUBITS = 2  # Reduced from 4 for faster training
+N_LAYERS = 1  # Reduced from 4 for faster training
 
 # ===== Attack Settings =====
 ATTACK_ENABLED = True
-MALICIOUS_PERCENTAGE = 0.4
-ATTACK_TYPE = "gradient_ascent"  # Only gradient ascent supported
-SCALE_FACTOR = 50.0  # Attack intensity (λ = 50)
+ATTACK_TYPE = "gradient_ascent"  # Base attack type
 
-# ===== Defense Settings =====
-# QuantumDefend PLUS v2: 3-Layer Cascading Defense System
-# Layer 0: Fast norm-based filtering (catches obvious attacks)
-# Layer 1: Adaptive 6-feature anomaly detection (catches sophisticated attacks)
-# Layer 2: Client-side fingerprint verification (catches stealthy attacks)
+# DIVERSE ATTACK CONFIGURATION (2 malicious clients with gradient scale attacks)
+# Client IDs are randomly selected, but here we define the attack profiles:
+MALICIOUS_CLIENTS_CONFIG = {
+    # Aggressive gradient scale attack (high intensity)
+    'aggressive': {
+        'count': 1,
+        'scale_factor': 50.0,  # Very high gradient scaling - tests Layer 0 norm filter
+        'description': 'High-intensity gradient scale attack (50x amplification)'
+    },
+    # Moderate gradient scale attack (medium intensity)
+    'moderate': {
+        'count': 1,
+        'scale_factor': 10.0,  # Medium gradient scaling - tests Layer 1 adaptive defense
+        'description': 'Medium-intensity gradient scale attack (10x amplification)'
+    },
+    # No subtle attacks for now - testing gradient scale first
+    'subtle': {
+        'count': 0,
+        'scale_factor': 1.5,  # Reserved for future testing
+        'description': 'Reserved for future subtle attack testing'
+    }
+}
+
+# Total malicious clients
+TOTAL_MALICIOUS = sum(config['count'] for config in MALICIOUS_CLIENTS_CONFIG.values())
+MALICIOUS_PERCENTAGE = TOTAL_MALICIOUS / NUM_CLIENTS  # 2/5 = 40%
+
+# Legacy single scale factor (for backward compatibility, uses aggressive)
+SCALE_FACTOR = MALICIOUS_CLIENTS_CONFIG['aggressive']['scale_factor']
+
+# ===== Defense Settings (3-Layer Cascade) =====
 DEFENSE_ENABLED = True
 
-# Layer 0: Norm-Based Filtering (Fast Pre-filter)
+# Layer 0: Norm Filter
 USE_NORM_FILTERING = True
-NORM_THRESHOLD_MULTIPLIER = 3.0  # median × 3.0 (catches 50x norm attacks)
+NORM_THRESHOLD_MULTIPLIER = 3.0  # median × 3.0
 
-# Layer 1: Adaptive Defense (Multi-feature Detection)
+# Layer 1: Adaptive Statistical Defense
 USE_ADAPTIVE_DEFENSE = True
-ADAPTIVE_METHOD = 'statistical'  # Options: 'statistical', 'clustering', 'isolation_forest'
-# Features: norm, loss_increase, layer_variance, sign_consistency, train_loss, train_acc
+ADAPTIVE_METHOD = "statistical"  # Statistical outlier detection
+ADAPTIVE_THRESHOLD_STD = 2.0  # mean + 2×std
 
-# Layer 2: Fingerprint Defense (Integrity Verification)
+# Layer 2: Fingerprint Validation
 USE_FINGERPRINTS = True
-FINGERPRINT_DIM = 512  # 512-D random projection
-FINGERPRINT_THRESHOLD = 0.85  # Cosine similarity threshold (31.8° angle)
-FINGERPRINT_TOLERANCE = 1e-3  # Verification tolerance
+FINGERPRINT_DIM = 512  # 512-D fingerprint projection
+FINGERPRINT_SIMILARITY_THRESHOLD = 0.7  # Minimum similarity to history
+
+# ===== Post-Quantum Crypto Settings =====
+PQ_CRYPTO_ENABLED = False  # Not used in Week 6
+KEM_ALGORITHM = "Kyber512"
+SIGNATURE_ALGORITHM = "Dilithium2"
 
 # ===== Model Settings =====
 NUM_CLASSES = 10
@@ -63,26 +93,31 @@ SEED = 42
 def print_config():
     """Print current configuration"""
     print("\n" + "="*60)
-    print("Quantum Federated Learning - Week 6 (Full Defense)")
+    print("Week 6: Testing Defense Against Gradient Scale Attacks")
     print("="*60)
     print(f"Clients: {NUM_CLIENTS} total, {CLIENTS_PER_ROUND} per round")
     print(f"Rounds: {NUM_ROUNDS}")
-    print(f"Data: Non-IID (α={DIRICHLET_ALPHA})" if NON_IID else "Data: IID")
+    print(f"Data: Non-IID (alpha={DIRICHLET_ALPHA})" if NON_IID else "Data: IID")
     print(f"Batch size: {BATCH_SIZE}, Local epochs: {LOCAL_EPOCHS}, LR: {LEARNING_RATE}")
     print(f"Quantum: {N_QUBITS} qubits, {N_LAYERS} layers")
     if ATTACK_ENABLED:
-        num_malicious = int(NUM_CLIENTS * MALICIOUS_PERCENTAGE)
-        print(f"⚠️  ATTACK: {ATTACK_TYPE} (scale={SCALE_FACTOR})")
-        print(f"⚠️  MALICIOUS: {num_malicious}/{NUM_CLIENTS} clients ({int(MALICIOUS_PERCENTAGE*100)}%)")
+        print(f"\n⚠️  ATTACK SCENARIO: Gradient Scale Attack")
+        print(f"    Attack Type: {ATTACK_TYPE}")
+        for attack_type, attack_config in MALICIOUS_CLIENTS_CONFIG.items():
+            if attack_config['count'] > 0:
+                print(f"    - {attack_config['count']}x {attack_type.upper()}: scale={attack_config['scale_factor']} ({attack_config['description']})")
+        print(f"    Total Malicious: {TOTAL_MALICIOUS}/{NUM_CLIENTS} clients ({int(MALICIOUS_PERCENTAGE*100)}%)")
     if DEFENSE_ENABLED:
+        defenses = []
         if USE_NORM_FILTERING:
-            print(f"🛡️  DEFENSE LAYER 0: Norm Filter (median × {NORM_THRESHOLD_MULTIPLIER})")
+            defenses.append("Layer 0: Norm Filter")
         if USE_ADAPTIVE_DEFENSE:
-            print(f"🛡️  DEFENSE LAYER 1: Adaptive ({ADAPTIVE_METHOD}) with 6 features")
+            defenses.append("Layer 1: Adaptive")
         if USE_FINGERPRINTS:
-            print(f"🛡️  DEFENSE LAYER 2: Fingerprints ({FINGERPRINT_DIM}-D projection)")
-        if not USE_NORM_FILTERING and not USE_ADAPTIVE_DEFENSE and not USE_FINGERPRINTS:
-            print(f"⚠️  DEFENSE ENABLED but no methods configured")
+            defenses.append("Layer 2: Fingerprints")
+        print(f"\n🛡️  DEFENSE LAYERS ACTIVE:")
+        for defense in defenses:
+            print(f"    ✓ {defense}")
     else:
-        print(f"⚠️  NO DEFENSE - All updates aggregated")
+        print(f"\n⚠️  WARNING: NO DEFENSE - All updates aggregated")
     print("="*60 + "\n")

@@ -4,7 +4,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import copy
 from config import Config
-from attack import LabelFlippingAttack
+from attack import ModelPoisoningAttack
 
 class Client:
     def __init__(self, client_id, data_loader):
@@ -23,7 +23,13 @@ class Client:
         """
         # Initialize attack for this round if malicious
         if is_malicious_this_round and Config.ATTACK_ENABLED:
-            self.attack = LabelFlippingAttack(num_classes=10)
+            # Use aggressive model poisoning with gradient ascent
+            # Options: 'gradient_ascent', 'scaled_poison', 'random_noise'
+            self.attack = ModelPoisoningAttack(
+                num_classes=10,
+                attack_type='gradient_ascent',  # Most aggressive
+                scale_factor=10.0  # Amplify the damage
+            )
         else:
             self.attack = None
         # Copy global model
@@ -60,14 +66,21 @@ class Client:
         
         # Compute update: Δw = w_local - w_global
         update = {}
-        update_norm = 0.0
         for name, param in model.named_parameters():
             global_param = dict(global_model.named_parameters())[name]
             delta = param.data - global_param.data
             update[name] = delta
-            update_norm += torch.norm(delta).item() ** 2
         
+        # POISON THE UPDATE if malicious
+        if self.attack is not None:
+            update = self.attack.poison_update(update)
+        
+        # Compute update norm (after poisoning)
+        update_norm = 0.0
+        for name, delta in update.items():
+            update_norm += torch.norm(delta).item() ** 2
         update_norm = update_norm ** 0.5
+        
         train_acc = 100. * total_correct / total_samples
         avg_loss = total_loss / total_samples
         

@@ -4,7 +4,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import copy
 from config import Config
-from attack import LabelFlippingAttack
+from attack import ModelPoisoningAttack
 from pq_crypto import PQCrypto, hash_update
 from defense_fingerprint_client import ClientSideFingerprintDefense
 
@@ -44,7 +44,12 @@ class Client:
         """
         # Initialize attack for this round if malicious
         if is_malicious_this_round and Config.ATTACK_ENABLED:
-            self.attack = LabelFlippingAttack(num_classes=10)
+            # Use aggressive model poisoning with gradient ascent
+            self.attack = ModelPoisoningAttack(
+                num_classes=10,
+                attack_type='gradient_ascent',
+                scale_factor=10.0
+            )
         else:
             self.attack = None
         # Copy global model
@@ -81,14 +86,21 @@ class Client:
         
         # Compute update: Δw = w_local - w_global
         update = {}
-        update_norm = 0.0
         for name, param in model.named_parameters():
             global_param = dict(global_model.named_parameters())[name]
             delta = param.data - global_param.data
             update[name] = delta
-            update_norm += torch.norm(delta).item() ** 2
         
+        # POISON THE UPDATE if malicious
+        if self.attack is not None:
+            update = self.attack.poison_update(update)
+        
+        # Compute update norm (after poisoning)
+        update_norm = 0.0
+        for name, delta in update.items():
+            update_norm += torch.norm(delta).item() ** 2
         update_norm = update_norm ** 0.5
+        
         train_acc = 100. * total_correct / total_samples
         avg_loss = total_loss / total_samples
         
@@ -118,12 +130,17 @@ class Client:
                 'train_loss': avg_loss,  # Metadata for enhanced clustering
                 'train_acc': train_acc,  # Metadata for enhanced clustering
                 'client_id': self.client_id,
-                'round_num': round_num
+                'round_num': round_num,
+                'update_norm': update_norm
             }, train_acc, avg_loss, update_norm
         else:
             # No crypto - return plain update with fingerprint
             return {
                 'update': update,
                 'fingerprint': fingerprint,
-                'client_id': self.client_id
+                'client_id': self.client_id,
+                'train_loss': avg_loss,
+                'train_acc': train_acc,
+                'round_num': round_num,
+                'update_norm': update_norm
             }, train_acc, avg_loss, update_norm
