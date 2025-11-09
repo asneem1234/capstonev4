@@ -124,9 +124,146 @@
             font-size: 14px;
             line-height: 1.6;
         }
+
+        .quantum-viz-btn {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 50px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .quantum-viz-btn:hover {
+            transform: translateX(-50%) translateY(-3px);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        .quantum-viz-btn::before {
+            content: "⚛️";
+            font-size: 20px;
+        }
+
+        .attack-selector {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(0, 100, 200, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            min-width: 400px;
+            opacity: 0;
+            display: none;
+            transition: all 0.3s ease-in-out;
+        }
+        
+        .attack-selector.show {
+            display: block;
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .attack-selector h3 {
+            color: #0066cc;
+            margin-bottom: 15px;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        .attack-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .attack-option {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .attack-option:hover {
+            border-color: #0066cc;
+            background: rgba(0, 102, 204, 0.05);
+        }
+
+        .attack-option.selected {
+            border-color: #0066cc;
+            background: rgba(0, 102, 204, 0.1);
+        }
+
+        .attack-option input[type="radio"] {
+            margin-right: 10px;
+        }
+
+        .attack-info {
+            flex: 1;
+        }
+
+        .attack-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 3px;
+        }
+
+        .attack-defense-status {
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .defense-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .defense-badge.strong {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .defense-badge.moderate {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .defense-badge.weak {
+            background: #f8d7da;
+            color: #721c24;
+        }
     </style>
 </head>
 <body>
+    <a href="quantum_nn_3d_visualization.html" class="quantum-viz-btn" target="_blank">
+        View Quantum NN in 3D
+    </a>
+
     <div id="canvas-container"></div>
     
     <div class="stats" id="stats">
@@ -146,6 +283,83 @@
             <span class="stat-label">Detected:</span>
             <span class="stat-value" id="detected">0</span>
         </div>
+        <div class="stat-item">
+            <span class="stat-label">Selected Attack:</span>
+            <span class="stat-value" id="selected-attack">Gradient Ascent</span>
+        </div>
+    </div>
+
+    <div class="attack-selector" id="attack-selector">
+        <h3>⚔️ Select Attack Type</h3>
+        <div class="attack-options">
+            <label class="attack-option selected" onclick="selectAttack('gradient-ascent')">
+                <input type="radio" name="attack" value="gradient-ascent" checked>
+                <div class="attack-info">
+                    <div class="attack-name">Gradient Ascent</div>
+                    <div class="attack-defense-status">
+                        <span class="defense-badge strong">L0: Strong</span>
+                        <span class="defense-badge strong">L1: Strong</span>
+                        <span class="defense-badge moderate">L2: Moderate</span>
+                        <span style="margin-left: auto; font-weight: bold; color: #00aa44;">🔥 Excellent Defense</span>
+                    </div>
+                </div>
+            </label>
+            
+            <label class="attack-option" onclick="selectAttack('label-flipping')">
+                <input type="radio" name="attack" value="label-flipping">
+                <div class="attack-info">
+                    <div class="attack-name">Label Flipping</div>
+                    <div class="attack-defense-status">
+                        <span class="defense-badge moderate">L0: Moderate</span>
+                        <span class="defense-badge moderate">L1: Moderate</span>
+                        <span class="defense-badge strong">L2: Strong</span>
+                        <span style="margin-left: auto; font-weight: bold; color: #0066cc;">👍 Good Defense</span>
+                    </div>
+                </div>
+            </label>
+            
+            <label class="attack-option" onclick="selectAttack('data-poisoning')">
+                <input type="radio" name="attack" value="data-poisoning">
+                <div class="attack-info">
+                    <div class="attack-name">Data Poisoning</div>
+                    <div class="attack-defense-status">
+                        <span class="defense-badge moderate">L0: Moderate</span>
+                        <span class="defense-badge moderate">L1: Moderate</span>
+                        <span class="defense-badge weak">L2: Weak</span>
+                        <span style="margin-left: auto; font-weight: bold; color: #666;">⚠️ Decent Defense</span>
+                    </div>
+                </div>
+            </label>
+            
+            <label class="attack-option" onclick="selectAttack('backdoor')">
+                <input type="radio" name="attack" value="backdoor">
+                <div class="attack-info">
+                    <div class="attack-name">Backdoor Attack</div>
+                    <div class="attack-defense-status">
+                        <span class="defense-badge weak">L0: Weak</span>
+                        <span class="defense-badge moderate">L1: Moderate</span>
+                        <span class="defense-badge strong">L2: Strong</span>
+                        <span style="margin-left: auto; font-weight: bold; color: #ff8800;">👌 Fair Defense</span>
+                    </div>
+                </div>
+            </label>
+            
+            <label class="attack-option" onclick="selectAttack('free-rider')">
+                <input type="radio" name="attack" value="free-rider">
+                <div class="attack-info">
+                    <div class="attack-name">Free-Rider Attack</div>
+                    <div class="attack-defense-status">
+                        <span class="defense-badge strong">L0: Strong</span>
+                        <span class="defense-badge weak">L1: Weak</span>
+                        <span class="defense-badge strong">L2: Strong</span>
+                        <span style="margin-left: auto; font-weight: bold; color: #00aa44;">🔥 Excellent Defense</span>
+                    </div>
+                </div>
+            </label>
+        </div>
+        <div style="margin-top: 15px; text-align: center;">
+            <button class="btn" onclick="confirmAttack()" style="padding: 10px 30px;">Confirm & Launch Attack</button>
+        </div>
     </div>
 
     <div class="info-box" id="info-box">
@@ -158,8 +372,8 @@
     </div>
 
     <div class="controls">
-        <button class="btn active" id="normalBtn" onclick="startNormal()">� Normal Training</button>
-        <button class="btn" id="attackBtn" onclick="startAttack()">⚔️ Launch Attack</button>
+        <button class="btn active" id="normalBtn" onclick="startNormal()">🏥 Normal Training</button>
+        <button class="btn" id="attackBtn" onclick="showAttackSelector()">⚔️ Launch Attack</button>
         <button class="btn" id="defenseBtn" onclick="startDefense()" disabled>🛡️ Enable Defense</button>
     </div>
 
@@ -179,6 +393,46 @@
         let maliciousHospitals = [3, 4]; // Hospital indices that become malicious
         let isDragging = false;
         let previousMousePosition = { x: 0, y: 0 };
+        
+        // Attack configuration with defense effectiveness
+        let selectedAttack = 'gradient-ascent';
+        let attackConfigs = {
+            'gradient-ascent': {
+                name: 'Gradient Ascent',
+                layers: { 0: 'strong', 1: 'strong', 2: 'moderate' },
+                blockedAt: 0, // Layer 0 blocks it
+                color: 0xff0055,
+                speed: 0.5
+            },
+            'label-flipping': {
+                name: 'Label Flipping',
+                layers: { 0: 'moderate', 1: 'moderate', 2: 'strong' },
+                blockedAt: 2, // Layer 2 blocks it
+                color: 0xff6600,
+                speed: 0.7
+            },
+            'data-poisoning': {
+                name: 'Data Poisoning',
+                layers: { 0: 'moderate', 1: 'moderate', 2: 'weak' },
+                blockedAt: null, // Weak at all layers - passes through
+                color: 0xff00ff,
+                speed: 0.6
+            },
+            'backdoor': {
+                name: 'Backdoor Attack',
+                layers: { 0: 'weak', 1: 'moderate', 2: 'strong' },
+                blockedAt: 2, // Layer 2 blocks it
+                color: 0xff9900,
+                speed: 0.8
+            },
+            'free-rider': {
+                name: 'Free-Rider Attack',
+                layers: { 0: 'strong', 1: 'weak', 2: 'strong' },
+                blockedAt: 0, // Layer 0 blocks it
+                color: 0xcc00ff,
+                speed: 0.9
+            }
+        };
 
         // Stats
         let stats = {
@@ -415,6 +669,9 @@
             updateInfo('Normal Training', '<strong>Federated Learning Round:</strong><br>1. Server broadcasts model (gold)<br>2. Hospitals train locally (pulsing)<br>3. Hospitals send updates (green)<br>4. Server aggregates');
             updateButtons('normalBtn');
             
+            // Hide attack selector if visible
+            document.getElementById('attack-selector').classList.remove('show');
+            
             // Enable attack button
             document.getElementById('attackBtn').disabled = false;
             document.getElementById('defenseBtn').disabled = true;
@@ -425,14 +682,15 @@
         function startAttack() {
             currentMode = 'attack';
             resetScene();
-            updateInfo('Attack Mode', '<strong>Byzantine Attack!</strong><br>Hospital D & E are malicious.<br>They send poisoned updates (red) with 51× larger gradients.<br><br>Model accuracy collapses!');
+            const attackConfig = attackConfigs[selectedAttack];
+            updateInfo('Attack Mode', `<strong>Byzantine Attack!</strong><br>Hospital D & E are malicious.<br>Attack Type: <strong>${attackConfig.name}</strong><br>They send poisoned updates.<br><br>Model accuracy collapses!`);
             updateButtons('attackBtn');
             
             // Mark hospitals as malicious
             maliciousHospitals.forEach(index => {
                 hospitals[index].userData.isMalicious = true;
-                hospitals[index].children[0].material.color.setHex(0xff0055);
-                hospitals[index].children[0].material.emissive.setHex(0xff0055);
+                hospitals[index].children[0].material.color.setHex(attackConfig.color);
+                hospitals[index].children[0].material.emissive.setHex(attackConfig.color);
             });
             
             stats.malicious = 2;
@@ -444,10 +702,37 @@
             runTrainingRounds();
         }
 
+        function selectAttack(attackType) {
+            selectedAttack = attackType;
+            document.getElementById('selected-attack').textContent = attackConfigs[attackType].name;
+            
+            // Update UI
+            document.querySelectorAll('.attack-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+        }
+        
+        function showAttackSelector() {
+            // Show the attack selector panel
+            document.getElementById('attack-selector').classList.add('show');
+        }
+        
+        function confirmAttack() {
+            // Hide the attack selector
+            document.getElementById('attack-selector').classList.remove('show');
+            
+            // Launch the attack with the selected type
+            startAttack();
+        }
+
         function startDefense() {
             currentMode = 'defense';
             updateInfo('Defense Active', '<strong>3-Layer Defense:</strong><br>• Layer 0: Norm Filter<br>• Layer 1: Statistical<br>• Layer 2: Fingerprint<br><br>Malicious updates blocked (orange)!');
             updateButtons('defenseBtn');
+            
+            // Hide attack selector if visible
+            document.getElementById('attack-selector').classList.remove('show');
             
             // Show defense layers
             defenseLayers.forEach((layer, index) => {
@@ -524,8 +809,9 @@
             setTimeout(() => {
                 hospitals.forEach((hospital, index) => {
                     setTimeout(() => {
-                        const color = hospital.userData.isMalicious ? 0xff0055 : 0x00ff88;
-                        const speed = hospital.userData.isMalicious ? 0.5 : 1;
+                        const attackConfig = attackConfigs[selectedAttack];
+                        const color = hospital.userData.isMalicious ? attackConfig.color : 0x00ff88;
+                        const speed = hospital.userData.isMalicious ? attackConfig.speed : 1;
                         
                         const particle = createUpdateParticle(
                             hospital.position.clone(),
@@ -536,25 +822,49 @@
                         
                         // In defense mode, check if malicious particle gets blocked
                         if (currentMode === 'defense' && hospital.userData.isMalicious) {
-                            // Simulate detection - particle stops at defense layer
-                            const stopLayer = 0; // Layer 0 catches most attacks
-                            const stopRadius = 8 - stopLayer * 1.5;
-                            const angle = Math.atan2(hospital.position.z, hospital.position.x);
-                            particle.userData.end = new THREE.Vector3(
-                                Math.cos(angle) * stopRadius,
-                                0,
-                                Math.sin(angle) * stopRadius
-                            );
-                            particle.userData.speed = 0.7;
+                            const blockedAt = attackConfig.blockedAt;
                             
-                            // Change color to indicate blocked
-                            setTimeout(() => {
-                                if (particle.material) {
-                                    particle.material.color.setHex(0xffaa00);
-                                    stats.detected++;
-                                    updateStats();
-                                }
-                            }, 800);
+                            if (blockedAt !== null) {
+                                // Attack is blocked at a specific layer
+                                const stopLayer = blockedAt;
+                                const stopRadius = 8 - stopLayer * 1.5;
+                                const angle = Math.atan2(hospital.position.z, hospital.position.x);
+                                particle.userData.end = new THREE.Vector3(
+                                    Math.cos(angle) * stopRadius,
+                                    0,
+                                    Math.sin(angle) * stopRadius
+                                );
+                                particle.userData.speed = 0.7;
+                                
+                                // Change color to indicate blocked (orange)
+                                setTimeout(() => {
+                                    if (particle.material) {
+                                        particle.material.color.setHex(0xffaa00);
+                                        stats.detected++;
+                                        updateStats();
+                                        
+                                        // Highlight the defense layer that stopped it
+                                        if (defenseLayers[stopLayer]) {
+                                            const originalColor = defenseLayers[stopLayer].material.color.clone();
+                                            defenseLayers[stopLayer].material.color.setHex(0x00ff88);
+                                            defenseLayers[stopLayer].material.opacity = 0.9;
+                                            
+                                            setTimeout(() => {
+                                                defenseLayers[stopLayer].material.color.copy(originalColor);
+                                                defenseLayers[stopLayer].material.opacity = 0.6;
+                                            }, 500);
+                                        }
+                                    }
+                                }, 800);
+                            } else {
+                                // Attack passes through (weak defense for this attack type)
+                                // Particle reaches server but changes to warning color
+                                setTimeout(() => {
+                                    if (particle.material) {
+                                        particle.material.color.setHex(0xff6600);
+                                    }
+                                }, 800);
+                            }
                         }
                     }, index * 200);
                 });
@@ -580,10 +890,22 @@
                         const attackAccuracies = [9.82, 10.10, 9.15, 11.23, 10.47, 9.68, 10.92, 9.35, 11.05, 10.18];
                         stats.accuracy = attackAccuracies[Math.min(currentRound - 1, 9)] || 9.82;
                     } else if (currentMode === 'defense') {
-                        // Starts from 10% and slowly recovers to 87.03%
-                        // Slow recovery: 10.10 -> 25.34 -> 42.18 -> 58.76 -> 70.25 -> 78.89 -> 83.12 -> 85.45 -> 86.38 -> 87.03
-                        const defenseProgression = [10.10, 25.34, 42.18, 58.76, 70.25, 78.89, 83.12, 85.45, 86.38, 87.03];
-                        stats.accuracy = defenseProgression[Math.min(currentRound - 1, 9)] || 10.10;
+                        const attackConfig = attackConfigs[selectedAttack];
+                        
+                        if (attackConfig.blockedAt !== null) {
+                            // Attack is blocked - model recovers well
+                            // Starts from 10% and recovers to 87-90% depending on attack type
+                            const recoveryRate = attackConfig.blockedAt === 0 ? 0.95 : // Blocked at Layer 0 (best)
+                                                attackConfig.blockedAt === 1 ? 0.90 : // Blocked at Layer 1 (good)
+                                                0.85; // Blocked at Layer 2 (decent)
+                            const defenseProgression = [10.10, 25.34, 42.18, 58.76, 70.25, 78.89, 83.12, 85.45, 86.38, 87.03].map(v => v * recoveryRate);
+                            stats.accuracy = defenseProgression[Math.min(currentRound - 1, 9)] || 10.10;
+                        } else {
+                            // Attack passes through (weak defense) - limited recovery
+                            // Stays lower, only recovers to ~50-60%
+                            const weakDefenseProgression = [10.10, 15.20, 22.50, 30.15, 38.45, 45.20, 50.75, 54.30, 57.10, 59.20];
+                            stats.accuracy = weakDefenseProgression[Math.min(currentRound - 1, 9)] || 10.10;
+                        }
                     }
                     
                     updateStats();
