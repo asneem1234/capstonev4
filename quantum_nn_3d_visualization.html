@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Neural Network 3D Visualization - Interactive Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow-x: hidden;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Control Panel */
+        #control-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border-radius: 15px;
+            color: white;
+            max-width: 350px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+        }
+
+        #control-panel h2 {
+            margin-bottom: 15px;
+            color: #00ff88;
+            font-size: 24px;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+
+        #control-panel h3 {
+            margin-top: 15px;
+            margin-bottom: 10px;
+            color: #66d9ff;
+            font-size: 16px;
+        }
+
+        .control-group {
+            margin: 15px 0;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button.active {
+            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.4);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        /* Info Panel */
+        #info-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border-radius: 15px;
+            color: white;
+            max-width: 400px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+        }
+
+        #info-panel h3 {
+            color: #00ff88;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        #info-panel p {
+            margin: 8px 0;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #ddd;
+        }
+
+        .highlight {
+            color: #66d9ff;
+            font-weight: bold;
+        }
+
+        /* Legend */
+        #legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Loading Screen */
+        #loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+        }
+
+        .loader {
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top: 5px solid #00ff88;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Stats Display */
+        #stats {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px 30px;
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+            display: flex;
+            gap: 30px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-label {
+            color: #aaa;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            color: #00ff88;
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="loader"></div>
+        <h2>Loading Quantum Neural Network Visualization...</h2>
+        <p>Initializing 3D Engine</p>
+    </div>
+
+    <div id="container">
+        <div id="canvas-container"></div>
+
+        <!-- Control Panel -->
+        <div id="control-panel">
+            <h2>⚛️ Quantum NN Control</h2>
+            
+            <h3>Visualization Mode</h3>
+            <button id="btn-overview" class="active">Full System</button>
+            <button id="btn-quantum">Quantum Circuit</button>
+            <button id="btn-data-flow">Data Flow</button>
+            
+            <h3>Camera Controls</h3>
+            <button id="btn-auto-rotate">🔄 Auto Rotate</button>
+            <button id="btn-reset-camera">🎯 Reset Camera</button>
+            
+            <div class="control-group">
+                <label for="speed">Animation Speed: <span id="speed-value">1.0x</span></label>
+                <input type="range" id="speed" min="0.1" max="3" step="0.1" value="1">
+            </div>
+
+            <h3>Circuit Parameters</h3>
+            <div class="control-group">
+                <label for="n-qubits">Number of Qubits: <span id="qubits-value">4</span></label>
+                <input type="range" id="n-qubits" min="2" max="4" step="1" value="4">
+            </div>
+
+            <div class="control-group">
+                <label for="n-layers">Number of Layers: <span id="layers-value">4</span></label>
+                <input type="range" id="n-layers" min="1" max="4" step="1" value="4">
+            </div>
+
+            <h3>Features</h3>
+            <button id="btn-show-entanglement">Show Entanglement</button>
+            <button id="btn-show-gates">Show Gate Details</button>
+            <button id="btn-show-particles">Quantum Particles</button>
+        </div>
+
+        <!-- Stats Display -->
+        <div id="stats">
+            <div class="stat-item">
+                <div class="stat-label">Total Params</div>
+                <div class="stat-value" id="total-params">5,118</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Quantum Params</div>
+                <div class="stat-value" id="quantum-params">32</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">State Space</div>
+                <div class="stat-value" id="state-space">2<sup>4</sup></div>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div id="legend">
+            <h4 style="margin-bottom: 10px; color: #00ff88;">Legend</h4>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff6b6b;"></div>
+                <span>Classical Layers</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #00ff88;"></div>
+                <span>Quantum Circuit</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #66d9ff;"></div>
+                <span>Entanglement</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ffd93d;"></div>
+                <span>Data Flow</span>
+            </div>
+        </div>
+
+        <!-- Info Panel -->
+        <div id="info-panel">
+            <h3>📊 Current Stage: <span id="current-stage" class="highlight">Initialization</span></h3>
+            <p id="stage-description">
+                Welcome to the Quantum Neural Network visualization. This interactive 3D model shows how quantum computing enhances federated learning for robust Byzantine defense.
+            </p>
+            <p style="margin-top: 10px;">
+                <strong>Parameters:</strong> <span id="param-info">32 quantum + 5,086 classical</span>
+            </p>
+            <p>
+                <strong>Advantage:</strong> <span id="advantage-info" class="highlight">85-99% parameter reduction</span>
+            </p>
+        </div>
+    </div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        // ============================================================
+        // QUANTUM NEURAL NETWORK 3D VISUALIZATION
+        // ============================================================
+
+        let scene, camera, renderer, controls, raycaster, mouse;
+        let animationId;
+        let clock = new THREE.Clock();
+        let animationSpeed = 1.0;
+
+        // Network components
+        let classicalLayers = [];
+        let quantumCircuit = null;
+        let dataParticles = [];
+        let entanglementLines = [];
+        let gateObjects = [];
+
+        // Configuration
+        let config = {
+            nQubits: 4,
+            nLayers: 4,
+            showEntanglement: false,
+            showGates: false,
+            showParticles: true,
+            mode: 'overview' // overview, quantum, dataflow
+        };
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a0a);
+            scene.fog = new THREE.Fog(0x0a0a0a, 50, 200);
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(
+                75,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(0, 15, 40);
+            camera.lookAt(0, 0, 0);
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            // Raycaster for interactions
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // Orbit Controls for rotation and zoom
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false;
+            controls.minDistance = 10;
+            controls.maxDistance = 100;
+            controls.maxPolarAngle = Math.PI;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
+
+            // Lighting
+            setupLighting();
+
+            // Build the network
+            buildHybridNetwork();
+
+            // Add grid helper
+            const gridHelper = new THREE.GridHelper(100, 50, 0x00ff88, 0x333333);
+            gridHelper.position.y = -10;
+            scene.add(gridHelper);
+
+            // Event listeners
+            setupEventListeners();
+
+            // Hide loading screen
+            document.getElementById('loading').style.display = 'none';
+
+            // Start animation
+            animate();
+        }
+
+        // ============================================================
+        // LIGHTING
+        // ============================================================
+
+        function setupLighting() {
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+
+            // Directional lights
+            const directionalLight1 = new THREE.DirectionalLight(0x00ff88, 0.8);
+            directionalLight1.position.set(10, 20, 10);
+            scene.add(directionalLight1);
+
+            const directionalLight2 = new THREE.DirectionalLight(0x66d9ff, 0.5);
+            directionalLight2.position.set(-10, 20, -10);
+            scene.add(directionalLight2);
+
+            // Point lights for quantum circuit
+            const pointLight1 = new THREE.PointLight(0x00ff88, 1, 50);
+            pointLight1.position.set(0, 0, 0);
+            scene.add(pointLight1);
+
+            const pointLight2 = new THREE.PointLight(0xff00ff, 0.8, 50);
+            pointLight2.position.set(0, 10, 0);
+            scene.add(pointLight2);
+        }
+
+        // ============================================================
+        // NETWORK CONSTRUCTION
+        // ============================================================
+
+        function buildHybridNetwork() {
+            // Clear existing objects
+            clearNetwork();
+
+            // 1. Input Layer (MNIST Image)
+            createInputLayer(-30, 0);
+
+            // 2. Classical CNN Feature Extractor
+            createClassicalCNN(-20, 0);
+
+            // 3. Classical-to-Quantum Interface
+            createInterface(-5, 0);
+
+            // 4. Quantum Circuit (The Star of the Show!)
+            createQuantumCircuit(10, 0);
+
+            // 5. Classical Classifier
+            createClassifier(30, 0);
+
+            // 6. Output Layer
+            createOutputLayer(40, 0);
+
+            // Create data flow connections
+            createDataFlowConnections();
+
+            // Create particles if enabled
+            if (config.showParticles) {
+                createDataParticles();
+            }
+        }
+
+        function clearNetwork() {
+            classicalLayers.forEach(layer => scene.remove(layer));
+            if (quantumCircuit) scene.remove(quantumCircuit);
+            dataParticles.forEach(p => scene.remove(p));
+            entanglementLines.forEach(l => scene.remove(l));
+            gateObjects.forEach(g => scene.remove(g));
+            
+            classicalLayers = [];
+            dataParticles = [];
+            entanglementLines = [];
+            gateObjects = [];
+        }
+
+        // ============================================================
+        // LAYER CREATION FUNCTIONS
+        // ============================================================
+
+        function createInputLayer(x, z) {
+            const group = new THREE.Group();
+            
+            // Create image plane
+            const geometry = new THREE.PlaneGeometry(8, 8);
+            const material = new THREE.MeshPhongMaterial({
+                color: 0xff6b6b,
+                emissive: 0xff6b6b,
+                emissiveIntensity: 0.3,
+                side: THREE.DoubleSide
+            });
+            const plane = new THREE.Mesh(geometry, material);
+            group.add(plane);
+
+            // Add grid to represent pixels
+            for (let i = 0; i < 28; i++) {
+                for (let j = 0; j < 28; j++) {
+                    const pixelGeom = new THREE.BoxGeometry(0.25, 0.25, 0.1);
+                    const pixelMat = new THREE.MeshPhongMaterial({
+                        color: 0xff6b6b,
+                        emissive: 0xff0000,
+                        emissiveIntensity: Math.random() * 0.5
+                    });
+                    const pixel = new THREE.Mesh(pixelGeom, pixelMat);
+                    pixel.position.set(
+                        (i - 14) * 0.28,
+                        (j - 14) * 0.28,
+                        0.1
+                    );
+                    group.add(pixel);
+                }
+            }
+
+            // Add label
+            addLabel(group, "Input\n28×28", 0, -5, 0);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            classicalLayers.push(group);
+        }
+
+        function createClassicalCNN(x, z) {
+            const group = new THREE.Group();
+            
+            // Create multiple conv layers
+            const layers = [
+                { size: 6, depth: 2, color: 0xff6b6b, label: "Conv 8×3×3" },
+                { size: 5, depth: 3, color: 0xff8c8c, label: "Conv 16×3×3" },
+                { size: 4, depth: 4, color: 0xffaaaa, label: "Pooling" }
+            ];
+
+            layers.forEach((layer, i) => {
+                const geometry = new THREE.BoxGeometry(layer.size, layer.size, layer.depth);
+                const material = new THREE.MeshPhongMaterial({
+                    color: layer.color,
+                    emissive: layer.color,
+                    emissiveIntensity: 0.2,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.position.set(i * 3, 0, 0);
+                group.add(mesh);
+
+                // Add edges
+                const edges = new THREE.EdgesGeometry(geometry);
+                const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+                const wireframe = new THREE.LineSegments(edges, lineMat);
+                wireframe.position.copy(mesh.position);
+                group.add(wireframe);
+            });
+
+            addLabel(group, "Classical CNN\n4,798 params", 0, -5, 0);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            classicalLayers.push(group);
+        }
+
+        function createInterface(x, z) {
+            const group = new THREE.Group();
+
+            // Create a funnel shape
+            const geometry = new THREE.CylinderGeometry(1, 3, 6, 32);
+            const material = new THREE.MeshPhongMaterial({
+                color: 0xffd93d,
+                emissive: 0xffd93d,
+                emissiveIntensity: 0.3,
+                transparent: true,
+                opacity: 0.7
+            });
+            const cylinder = new THREE.Mesh(geometry, material);
+            cylinder.rotation.z = Math.PI / 2;
+            group.add(cylinder);
+
+            // Add particles flowing through
+            for (let i = 0; i < 20; i++) {
+                const particleGeom = new THREE.SphereGeometry(0.1, 8, 8);
+                const particleMat = new THREE.MeshBasicMaterial({ color: 0xffd93d });
+                const particle = new THREE.Mesh(particleGeom, particleMat);
+                particle.position.set(
+                    Math.random() * 4 - 2,
+                    Math.random() * 2 - 1,
+                    Math.random() * 2 - 1
+                );
+                group.add(particle);
+            }
+
+            addLabel(group, "Interface\n256→" + config.nQubits, 0, -4, 0);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            classicalLayers.push(group);
+        }
+
+        function createQuantumCircuit(x, z) {
+            const group = new THREE.Group();
+
+            const qubitSpacing = 3;
+            const layerSpacing = 4;
+
+            // Create qubits (horizontal lines with spheres)
+            for (let q = 0; q < config.nQubits; q++) {
+                const y = (config.nQubits - 1) * qubitSpacing / 2 - q * qubitSpacing;
+
+                // Qubit line
+                const lineGeom = new THREE.CylinderGeometry(0.05, 0.05, config.nLayers * layerSpacing);
+                const lineMat = new THREE.MeshPhongMaterial({
+                    color: 0x00ff88,
+                    emissive: 0x00ff88,
+                    emissiveIntensity: 0.5
+                });
+                const line = new THREE.Mesh(lineGeom, lineMat);
+                line.rotation.z = Math.PI / 2;
+                line.position.set(config.nLayers * layerSpacing / 2, y, 0);
+                group.add(line);
+
+                // Qubit state indicator (pulsing sphere)
+                const stateGeom = new THREE.SphereGeometry(0.3, 16, 16);
+                const stateMat = new THREE.MeshPhongMaterial({
+                    color: 0x00ff88,
+                    emissive: 0x00ff88,
+                    emissiveIntensity: 0.8
+                });
+                const stateSphere = new THREE.Mesh(stateGeom, stateMat);
+                stateSphere.position.set(-1, y, 0);
+                stateSphere.userData = { type: 'qubit', index: q, pulse: true };
+                group.add(stateSphere);
+
+                // Create gates for each layer
+                for (let l = 0; l < config.nLayers; l++) {
+                    // RY Gate
+                    const ryGeom = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+                    const ryMat = new THREE.MeshPhongMaterial({
+                        color: 0xff00ff,
+                        emissive: 0xff00ff,
+                        emissiveIntensity: 0.5
+                    });
+                    const ryGate = new THREE.Mesh(ryGeom, ryMat);
+                    ryGate.position.set(l * layerSpacing, y, 0);
+                    ryGate.userData = { type: 'gate', gate: 'RY', qubit: q, layer: l };
+                    group.add(ryGate);
+                    gateObjects.push(ryGate);
+
+                    // RZ Gate
+                    const rzGeom = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+                    const rzMat = new THREE.MeshPhongMaterial({
+                        color: 0x00ccff,
+                        emissive: 0x00ccff,
+                        emissiveIntensity: 0.5
+                    });
+                    const rzGate = new THREE.Mesh(rzGeom, rzMat);
+                    rzGate.position.set(l * layerSpacing + 1, y, 0);
+                    rzGate.userData = { type: 'gate', gate: 'RZ', qubit: q, layer: l };
+                    group.add(rzGate);
+                    gateObjects.push(rzGate);
+                }
+
+                // Measurement indicator
+                const measGeom = new THREE.ConeGeometry(0.4, 0.8, 16);
+                const measMat = new THREE.MeshPhongMaterial({
+                    color: 0xffd93d,
+                    emissive: 0xffd93d,
+                    emissiveIntensity: 0.5
+                });
+                const measCone = new THREE.Mesh(measGeom, measMat);
+                measCone.position.set(config.nLayers * layerSpacing + 1, y, 0);
+                measCone.rotation.z = -Math.PI / 2;
+                group.add(measCone);
+            }
+
+            // Create CNOT connections (entanglement)
+            if (config.showEntanglement) {
+                for (let l = 0; l < config.nLayers; l++) {
+                    for (let q = 0; q < config.nQubits - 1; q++) {
+                        const y1 = (config.nQubits - 1) * qubitSpacing / 2 - q * qubitSpacing;
+                        const y2 = (config.nQubits - 1) * qubitSpacing / 2 - (q + 1) * qubitSpacing;
+
+                        const points = [
+                            new THREE.Vector3(l * layerSpacing + 2, y1, 0),
+                            new THREE.Vector3(l * layerSpacing + 2, y2, 0)
+                        ];
+                        const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
+                        const lineMat = new THREE.LineBasicMaterial({
+                            color: 0x66d9ff,
+                            linewidth: 3
+                        });
+                        const cnotLine = new THREE.Line(lineGeom, lineMat);
+                        group.add(cnotLine);
+                        entanglementLines.push(cnotLine);
+
+                        // Add entanglement indicator spheres
+                        const entGeom = new THREE.SphereGeometry(0.2, 16, 16);
+                        const entMat = new THREE.MeshPhongMaterial({
+                            color: 0x66d9ff,
+                            emissive: 0x66d9ff,
+                            emissiveIntensity: 0.8
+                        });
+                        const ent1 = new THREE.Mesh(entGeom, entMat);
+                        ent1.position.set(l * layerSpacing + 2, y1, 0);
+                        group.add(ent1);
+
+                        const ent2 = new THREE.Mesh(entGeom, entMat);
+                        ent2.position.set(l * layerSpacing + 2, y2, 0);
+                        group.add(ent2);
+                    }
+                }
+            }
+
+            addLabel(group, "Quantum Circuit\n32 params", 0, -5, 0);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            quantumCircuit = group;
+        }
+
+        function createClassifier(x, z) {
+            const group = new THREE.Group();
+
+            // Two-layer MLP
+            const layer1Geom = new THREE.BoxGeometry(3, 6, 2);
+            const layer1Mat = new THREE.MeshPhongMaterial({
+                color: 0xff6b6b,
+                emissive: 0xff6b6b,
+                emissiveIntensity: 0.2,
+                transparent: true,
+                opacity: 0.8
+            });
+            const layer1 = new THREE.Mesh(layer1Geom, layer1Mat);
+            layer1.position.set(0, 0, 0);
+            group.add(layer1);
+
+            const layer2Geom = new THREE.BoxGeometry(2, 4, 1.5);
+            const layer2Mat = new THREE.MeshPhongMaterial({
+                color: 0xff8c8c,
+                emissive: 0xff8c8c,
+                emissiveIntensity: 0.2,
+                transparent: true,
+                opacity: 0.8
+            });
+            const layer2 = new THREE.Mesh(layer2Geom, layer2Mat);
+            layer2.position.set(4, 0, 0);
+            group.add(layer2);
+
+            addLabel(group, "Classifier\n490 params", 0, -5, 0);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            classicalLayers.push(group);
+        }
+
+        function createOutputLayer(x, z) {
+            const group = new THREE.Group();
+
+            // Create 10 output nodes (digits 0-9)
+            for (let i = 0; i < 10; i++) {
+                const nodeGeom = new THREE.SphereGeometry(0.5, 16, 16);
+                const nodeMat = new THREE.MeshPhongMaterial({
+                    color: 0x00ff88,
+                    emissive: 0x00ff88,
+                    emissiveIntensity: 0.5
+                });
+                const node = new THREE.Mesh(nodeGeom, nodeMat);
+                node.position.set(0, 4.5 - i, 0);
+                node.userData = { digit: i };
+                group.add(node);
+            }
+
+            addLabel(group, "Output\n10 Classes", 0, -6, 0);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            classicalLayers.push(group);
+        }
+
+        function createDataFlowConnections() {
+            // Create curves showing data flow between layers
+            const positions = [
+                { x: -30, y: 0 }, // Input
+                { x: -20, y: 0 }, // CNN
+                { x: -5, y: 0 },  // Interface
+                { x: 10, y: 0 },  // Quantum
+                { x: 30, y: 0 },  // Classifier
+                { x: 40, y: 0 }   // Output
+            ];
+
+            for (let i = 0; i < positions.length - 1; i++) {
+                const start = new THREE.Vector3(positions[i].x, positions[i].y, 0);
+                const end = new THREE.Vector3(positions[i + 1].x, positions[i + 1].y, 0);
+                
+                const curve = new THREE.QuadraticBezierCurve3(
+                    start,
+                    new THREE.Vector3((start.x + end.x) / 2, 2, 0),
+                    end
+                );
+
+                const points = curve.getPoints(50);
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const material = new THREE.LineBasicMaterial({
+                    color: 0xffd93d,
+                    transparent: true,
+                    opacity: 0.3,
+                    linewidth: 2
+                });
+                const line = new THREE.Line(geometry, material);
+                scene.add(line);
+            }
+        }
+
+        function createDataParticles() {
+            // Create particles that flow through the network
+            for (let i = 0; i < 50; i++) {
+                const particleGeom = new THREE.SphereGeometry(0.1, 8, 8);
+                const particleMat = new THREE.MeshBasicMaterial({
+                    color: 0xffd93d,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const particle = new THREE.Mesh(particleGeom, particleMat);
+                
+                particle.position.set(
+                    -30 + Math.random() * 70,
+                    Math.random() * 10 - 5,
+                    Math.random() * 10 - 5
+                );
+                
+                particle.userData = {
+                    velocity: new THREE.Vector3(0.05, 0, 0),
+                    startX: particle.position.x
+                };
+                
+                scene.add(particle);
+                dataParticles.push(particle);
+            }
+        }
+
+        function addLabel(parent, text, x, y, z) {
+            // Create text sprite
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 128;
+            
+            context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            
+            context.font = 'bold 20px Arial';
+            context.fillStyle = 'white';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            
+            const lines = text.split('\n');
+            lines.forEach((line, i) => {
+                context.fillText(line, canvas.width / 2, canvas.height / 2 + (i - lines.length / 2 + 0.5) * 30);
+            });
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(8, 4, 1);
+            sprite.position.set(x, y, z);
+            parent.add(sprite);
+        }
+
+        // ============================================================
+        // ANIMATION
+        // ============================================================
+
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+
+            const delta = clock.getDelta() * animationSpeed;
+
+            // Update orbit controls
+            controls.update();
+
+            // Rotate quantum circuit
+            if (quantumCircuit) {
+                quantumCircuit.rotation.y += 0.005 * animationSpeed;
+            }
+
+            // Pulse qubit states
+            gateObjects.forEach((gate, i) => {
+                const time = clock.getElapsedTime();
+                gate.rotation.x = Math.sin(time * 2 + i) * 0.2;
+                gate.rotation.y = Math.cos(time * 2 + i) * 0.2;
+            });
+
+            // Animate classical layers
+            classicalLayers.forEach((layer, i) => {
+                layer.rotation.y = Math.sin(clock.getElapsedTime() * 0.5 + i) * 0.05;
+            });
+
+            // Move data particles
+            dataParticles.forEach(particle => {
+                particle.position.x += particle.userData.velocity.x * animationSpeed;
+                
+                if (particle.position.x > 45) {
+                    particle.position.x = -35;
+                }
+                
+                // Add some wave motion
+                particle.position.y += Math.sin(clock.getElapsedTime() * 2 + particle.position.x) * 0.01;
+            });
+
+            // Animate entanglement lines
+            entanglementLines.forEach((line, i) => {
+                const time = clock.getElapsedTime();
+                line.material.opacity = 0.5 + Math.sin(time * 3 + i) * 0.3;
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // ============================================================
+        // EVENT HANDLERS
+        // ============================================================
+
+        function setupEventListeners() {
+            // Window resize
+            window.addEventListener('resize', onWindowResize, false);
+
+            // Mouse move for raycasting
+            window.addEventListener('mousemove', onMouseMove, false);
+            window.addEventListener('click', onClick, false);
+
+            // Control buttons
+            document.getElementById('btn-overview').addEventListener('click', () => setMode('overview'));
+            document.getElementById('btn-quantum').addEventListener('click', () => setMode('quantum'));
+            document.getElementById('btn-data-flow').addEventListener('click', () => setMode('dataflow'));
+
+            document.getElementById('btn-auto-rotate').addEventListener('click', toggleAutoRotate);
+            document.getElementById('btn-reset-camera').addEventListener('click', resetCamera);
+
+            document.getElementById('speed').addEventListener('input', (e) => {
+                animationSpeed = parseFloat(e.target.value);
+                document.getElementById('speed-value').textContent = animationSpeed.toFixed(1) + 'x';
+            });
+
+            document.getElementById('n-qubits').addEventListener('input', (e) => {
+                config.nQubits = parseInt(e.target.value);
+                document.getElementById('qubits-value').textContent = config.nQubits;
+                updateStats();
+                buildHybridNetwork();
+            });
+
+            document.getElementById('n-layers').addEventListener('input', (e) => {
+                config.nLayers = parseInt(e.target.value);
+                document.getElementById('layers-value').textContent = config.nLayers;
+                updateStats();
+                buildHybridNetwork();
+            });
+
+            document.getElementById('btn-show-entanglement').addEventListener('click', () => {
+                config.showEntanglement = !config.showEntanglement;
+                document.getElementById('btn-show-entanglement').classList.toggle('active');
+                buildHybridNetwork();
+            });
+
+            document.getElementById('btn-show-particles').addEventListener('click', () => {
+                config.showParticles = !config.showParticles;
+                document.getElementById('btn-show-particles').classList.toggle('active');
+                dataParticles.forEach(p => p.visible = config.showParticles);
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // Raycasting for hover effects
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+                if (object.userData.type === 'gate') {
+                    updateInfoPanel(object.userData);
+                }
+            }
+        }
+
+        function onClick(event) {
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+                if (object.userData.type === 'gate') {
+                    highlightGate(object);
+                }
+            }
+        }
+
+        function setMode(mode) {
+            config.mode = mode;
+            
+            // Update button states
+            document.querySelectorAll('#control-panel button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            if (mode === 'overview') {
+                document.getElementById('btn-overview').classList.add('active');
+                camera.position.set(0, 15, 40);
+                controls.target.set(0, 0, 0);
+                controls.update();
+                updateStageInfo('Full System Overview', 'Viewing the complete hybrid quantum-classical neural network with all components.');
+            } else if (mode === 'quantum') {
+                document.getElementById('btn-quantum').classList.add('active');
+                camera.position.set(10, 5, 20);
+                controls.target.set(10, 0, 0);
+                controls.update();
+                updateStageInfo('Quantum Circuit Focus', 'Detailed view of the 4-qubit quantum circuit with variational layers and entanglement gates.');
+            } else if (mode === 'dataflow') {
+                document.getElementById('btn-data-flow').classList.add('active');
+                camera.position.set(0, 20, 30);
+                controls.target.set(0, 0, 0);
+                controls.update();
+                updateStageInfo('Data Flow Visualization', 'Tracking how data flows from input through quantum processing to output predictions.');
+            }
+        }
+
+        function toggleAutoRotate() {
+            controls.autoRotate = !controls.autoRotate;
+            const btn = document.getElementById('btn-auto-rotate');
+            if (controls.autoRotate) {
+                btn.classList.add('active');
+                btn.textContent = '🔄 Auto Rotate ON';
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = '🔄 Auto Rotate OFF';
+            }
+        }
+
+        function resetCamera() {
+            camera.position.set(0, 15, 40);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        }
+
+        function resetView() {
+            camera.position.set(0, 15, 40);
+            controls.target.set(0, 0, 0);
+            controls.update();
+            clock = new THREE.Clock();
+            animationSpeed = 1.0;
+            document.getElementById('speed').value = 1.0;
+            document.getElementById('speed-value').textContent = '1.0x';
+        }
+
+        function updateInfoPanel(data) {
+            if (data.type === 'gate') {
+                updateStageInfo(
+                    `${data.gate} Gate (Q${data.qubit}, L${data.layer})`,
+                    `This ${data.gate} gate applies a rotation to qubit ${data.qubit} in layer ${data.layer}. ` +
+                    `${data.gate === 'RY' ? 'RY rotates around the Y-axis of the Bloch sphere.' : 'RZ adds phase rotation around the Z-axis.'}`
+                );
+            }
+        }
+
+        function updateStageInfo(stage, description) {
+            document.getElementById('current-stage').textContent = stage;
+            document.getElementById('stage-description').textContent = description;
+        }
+
+        function highlightGate(gate) {
+            // Temporarily change color to highlight
+            const originalColor = gate.material.emissive.clone();
+            gate.material.emissive.setHex(0xffffff);
+            
+            setTimeout(() => {
+                gate.material.emissive.copy(originalColor);
+            }, 500);
+        }
+
+        function updateStats() {
+            const quantumParams = config.nQubits * config.nLayers * 2;
+            const classicalParams = 5086;
+            const totalParams = quantumParams + classicalParams;
+            
+            document.getElementById('quantum-params').textContent = quantumParams;
+            document.getElementById('total-params').textContent = totalParams.toLocaleString();
+            document.getElementById('state-space').innerHTML = `2<sup>${config.nQubits}</sup>`;
+            
+            document.getElementById('param-info').textContent = 
+                `${quantumParams} quantum + ${classicalParams} classical`;
+        }
+
+        // ============================================================
+        // START
+        // ============================================================
+
+        window.addEventListener('load', () => {
+            init();
+            updateStats();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            renderer.dispose();
+        });
+    </script>
+</body>
+</html>
